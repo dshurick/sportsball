@@ -193,7 +193,7 @@ data_ff_2018 <-
       (fg * 3.5) +
       (xp),
     owner = '',
-    paid = NA
+    paid = as.numeric(NA)
   ) %>%
   arrange(desc(points)) %>%
   mutate(overallRank = c(1:n())) %>%
@@ -292,8 +292,42 @@ dstStart <- 10
 dstBench <- 0
 
 .tbl <- data_ff_2018
-.tbl[200, 'owner'] <- 'Devon'
-.tbl[200, 'paid'] <- 50
+
+draftPlayer <- function(.tbl, .playerId, .owner, .paid) {
+  
+  user_exprs <- enquo(.tbl)
+  
+  .tbl <- data_ff_2018 %>%
+    dplyr::mutate(owner = case_when(playerId == .playerId ~ .owner,
+                                    TRUE ~ owner),
+                  paid = case_when(playerId == .playerId ~ .paid,
+                                   TRUE ~ paid))
+  
+  assign(
+    rlang::as_string(rlang::get_expr(user_exprs)),
+    value = .tbl,
+    envir = rlang::get_env(user_exprs)
+  )
+  
+}
+
+draftPlayer(data_ff_2018, .playerId = 43, .owner = 'David', .paid = 19)
+draftPlayer(data_ff_2018, .playerId = 62, .owner = 'Brant', .paid = 19)
+draftPlayer(data_ff_2018, .playerId = 58, .owner = 'Nathan', .paid = 6)
+draftPlayer(data_ff_2018, .playerId = 10, .owner = 'Kevin', .paid = 32)
+draftPlayer(data_ff_2018, .playerId = 32, .owner = 'Kyle', .paid = 29)
+draftPlayer(data_ff_2018, .playerId = 2, .owner = 'Evan', .paid = 22)
+draftPlayer(data_ff_2018, .playerId = 54, .owner = 'Taylor', .paid = 8)
+draftPlayer(data_ff_2018, .playerId = 21, .owner = 'Adam', .paid = 5)
+draftPlayer(data_ff_2018, .playerId = 17, .owner = 'Tom', .paid = 5)
+
+findPlayer <- function(.player) {
+  sdist <-
+    stringdist::stringdist(.player, data_ff_2018$Player, method = 'jw')
+  data_ff_2018[order(sdist), ] %>%
+    dplyr::slice(1:5) %>%
+    dplyr::select(playerId, Player)
+}
 
 data_ff_2018 %>%
   filter(willBeDrafted)
@@ -430,7 +464,10 @@ data_ff_2018 <- data_ff_2018 %>%
   ) %>%
   dplyr::mutate(pnts_over_repl = pmax(points - repl_value, 0))
   
-total_points <- sum(data_ff_2018$pnts_over_repl)
+total_points <- data_ff_2018 %>%
+  dplyr::filter(owner == '') %>%
+  dplyr::summarise(sum(pnts_over_repl)) %>%
+  unlist()
 
 costPerPoint <- totalMoneyLeft / total_points
 
@@ -438,5 +475,6 @@ data_ff_2018 <- data_ff_2018 %>%
   dplyr::mutate(value = round(pnts_over_repl * costPerPoint) + 1)
 
 data_ff_2018 %>%
+  dplyr::filter(owner == '') %>%
   dplyr::select(Player, Team, pos, value) %>%
   View()
