@@ -1,23 +1,68 @@
 
+
 library(ffanalytics)
 library(rvest)
+
+xmldoc <-
+  read_html("https://projects.fivethirtyeight.com/2018-nfl-predictions/?ex_cid=rrpromo")
+
+(
+  dtf <- tibble::tibble(
+    elo_rating =
+      xmldoc %>%
+        html_nodes("td.elo") %>%
+        html_text(),
+    team = xmldoc %>%
+      html_nodes(".full") %>%
+      html_text(),
+    division = xmldoc %>%
+      html_nodes("td.division") %>%
+      html_text(),
+    wins = xmldoc %>%
+      html_nodes(".num.div") %>%
+      html_text(),
+    losses = xmldoc %>%
+      html_nodes(".div+ .num") %>%
+      html_text(),
+    make_playoffs = xmldoc %>%
+      html_nodes(".pct.div") %>%
+      html_text(),
+    win_division = xmldoc %>%
+      html_nodes("td.division-chances") %>%
+      html_text(),
+    week1bye = xmldoc %>%
+      html_nodes("td.pct.desktop") %>%
+      html_text(),
+    super_bowl = xmldoc %>%
+      html_nodes(".superbowl") %>%
+      html_text()
+  ) %>%
+    dplyr::mutate_at(
+      .vars = vars(elo_rating, wins, losses, make_playoffs, win_division, week1bye, super_bowl),
+      .funs = parse_number
+    ) %>%
+    dplyr::mutate_at(
+      .vars = vars(make_playoffs, win_division, week1bye, super_bowl),
+      .funs = funs(. / 100)
+    )
+)
 
 parse_draft <- function(x, ...) {
   xmldoc <- read_html(x, ...)
   players <- xmldoc %>%
-    html_nodes('.tableBody td:nth-child(2)') %>%
+    html_nodes(".tableBody td:nth-child(2)") %>%
     html_text()
-  
+
   costs <- xmldoc %>%
-    html_nodes('.tableBody td~ td+ td') %>%
+    html_nodes(".tableBody td~ td+ td") %>%
     html_text()
-  
+
   teamnames <- xmldoc %>%
-    html_nodes('.tableHead td') %>%
+    html_nodes(".tableHead td") %>%
     html_text() %>%
     stringr::str_trim() %>%
     stringr::str_squish()
-  
+
   dtf <- dplyr::bind_cols(
     players %>%
       stringr::str_match(
@@ -25,41 +70,53 @@ parse_draft <- function(x, ...) {
       ) %>%
       tibble::as_tibble() %>%
       dplyr::mutate(
-        player = case_when(is.na(V3) ~ V6,
-                           TRUE ~ V3),
-        pos = case_when(is.na(V5) ~ V7,
-                        TRUE ~ V5),
+        player = case_when(
+          is.na(V3) ~ V6,
+          TRUE ~ V3
+        ),
+        pos = case_when(
+          is.na(V5) ~ V7,
+          TRUE ~ V5
+        ),
         team = V4
       ) %>%
       dplyr::select(player, team, pos),
     tibble::tibble(paid = costs)
   ) %>%
-    dplyr::mutate(paid = parse_number(paid),
-                  ownder = rep(teamnames, each = 18))
+    dplyr::mutate(
+      paid = parse_number(paid),
+      ownder = rep(teamnames, each = 18)
+    )
   return(dtf)
 }
 
 draftresults <-
-  map_dfr(2013:2017,
-          ~ parse_draft(sprintf(
-            './../data/raw/ESPN_auction_%d.html', .x
-          )) %>%
-            dplyr::mutate(season = .x))
+  map_dfr(
+    2013:2017,
+    ~parse_draft(sprintf(
+      "./../data/raw/ESPN_auction_%d.html", .x
+    )) %>%
+      dplyr::mutate(season = .x)
+  )
 
 byseason <- draftresults %>%
   dplyr::mutate(value = paid - 1) %>%
   dplyr::group_by(season, pos) %>%
-  dplyr::summarise(num = sum(value > 0),
-                   total_value = sum(value))
+  dplyr::summarise(
+    num = sum(value > 0),
+    total_value = sum(value)
+  )
 
 draftresults %>%
   dplyr::mutate(value = paid - 1) %>%
   dplyr::group_by(pos) %>%
-  dplyr::summarise(num = sum(value > 0) / 5,
-                   total_value = sum(value) / 5) %>%
+  dplyr::summarise(
+    num = sum(value > 0) / 5,
+    total_value = sum(value) / 5
+  ) %>%
   dplyr::mutate(total_value = total_value / sum(total_value))
 
-my_scrape <- readr::read_rds('./data/interim/scrape_data_20180908.rds')
+my_scrape <- readr::read_rds("./data/interim/scrape_data_20180908.rds")
 
 scoring_rules <- list(
   pass = list(
@@ -137,28 +194,32 @@ my_projections <-
 
 add_aav <-
   function(projection_table,
-           sources = c("RTS", "ESPN", "Yahoo", "NFL")) {
+             sources = c("RTS", "ESPN", "Yahoo", "NFL")) {
     sources <- match.arg(sources, several.ok = TRUE)
     lg_type <- attr(projection_table, "lg_type")
     season <- attr(projection_table, "season")
     week <- attr(projection_table, "week")
     if (week != 0) {
       warning("AAV data is not available for weekly data",
-              call. = FALSE)
+        call. = FALSE
+      )
       return(projection_table)
     }
     adp_tbl <- get_adp(sources, type = "AAV") %>%
       select(1, length(.)) %>%
-      rename_at(length(.), ~ function(x)
+      rename_at(length(.), ~function(x)
         return("aav"))
-    
+
     projection_table <- left_join(projection_table, adp_tbl,
-                                  by = "id")
+      by = "id"
+    )
     projection_table %>%
       `attr<-`(which = "season", season) %>%
       `attr<-`(which = "week", week) %>%
-      `attr<-`(which = "lg_type",
-               lg_type)
+      `attr<-`(
+        which = "lg_type",
+        lg_type
+      )
   }
 
 my_projections <- my_projections %>%

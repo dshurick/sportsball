@@ -9,23 +9,25 @@ exp_wins <- gs_read(
   ws = 'Season2018',
   col_types = cols(
     .default = col_number(),
-    away_team = col_factor(levels = NULL),
-    home_team = col_factor(levels = NULL),
-    week = col_factor(levels = NULL)
+    away_team = col_character(),
+    home_team = col_character()
   )
 ) %>%
   dplyr::mutate_at(.vars = vars(ends_with("_prob")), .funs = funs(. / 100)) %>%
-  dplyr::mutate(away_team = factor(away_team, levels = sort(levels(away_team))),
-                home_team = factor(home_team, levels = sort(levels(home_team))))
+  dplyr::mutate(
+    away_team = factor(away_team),
+    home_team = factor(home_team),
+    week = factor(week)
+  )
 
-exp_wins$WinProb <- predict(fit, exp_wins, type = "response")
-
-googlesheets::gs_edit_cells(nfl_2018,
-                            ws = "Season2018",
-                            input = exp_wins %>%
-                              dplyr::select(WinProb),
-                            col_names = FALSE,
-                            anchor = 'G2')
+# exp_wins$WinProb <- predict(fit, exp_wins, type = "response")
+# 
+# googlesheets::gs_edit_cells(nfl_2018,
+#                             ws = "Season2018",
+#                             input = exp_wins %>%
+#                               dplyr::select(WinProb),
+#                             col_names = FALSE,
+#                             anchor = 'G2')
 
 # picked_teams <- c("1" = "Buffalo", "2" = "Seattle")
 picked_teams <- c()
@@ -40,7 +42,7 @@ week <- Matrix::sparse.model.matrix(~ week - 1, data = exp_wins)
 mat <- Matrix::t(cbind(rbind(X1, X2),
                        rbind(week, week)))
 
-obj <- log(c(exp_wins$massey_away_prob, exp_wins$massey_home_prob))
+obj <- log(c(exp_wins$sagarin_away_prob, exp_wins$sagarin_home_prob))
 
 picked_indx <- which(levels(exp_wins$away_team) %in% picked_teams)
 
@@ -62,5 +64,5 @@ result <- Rglpk_solve_LP(
 awayind <- which(result$solution[1:NROW(exp_wins)] == 1)
 homeind <- which(result$solution[-c(1:NROW(exp_wins))] == 1)
 
-exp_wins[awayind,] %>% dplyr::select(week, away_team, home_team, massey_away_prob, massey_home_prob)
-exp_wins[homeind,] %>% dplyr::select(week, away_team, home_team, massey_away_prob, massey_home_prob)
+exp_wins[awayind,] %>% dplyr::select(week, away_team, home_team, sagarin_away_prob, sagarin_home_prob)
+exp_wins[homeind,] %>% dplyr::select(week, away_team, home_team, sagarin_away_prob, sagarin_home_prob)
