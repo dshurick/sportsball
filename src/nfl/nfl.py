@@ -1,6 +1,6 @@
-import json
-
 import gspread
+import numpy
+import pandas
 from oauth2client.service_account import ServiceAccountCredentials
 
 
@@ -10,36 +10,34 @@ class Team(object):
         self.name = name
         self.conference = conference
         self.division = division
-        self.elo_rating = None
-        self.sagarin_rating = None
-        self.massey_rating = None
+        self.ratings = {}
 
     def __repr__(self):
         return '''{}: {}'''.format(self.team_id, self.name)
 
 
 class Game(object):
-    def __init__(self, date, season, neutral, playoff, team1, team2, score1,
-                 score2):
-        self.date = date
+    def __init__(self, week, season, neutral, playoff, away_team, home_team,
+                 away_score, home_score):
+        self.week = week
         self.season = season
         self.neutral = neutral
         self.playoff = playoff
-        self.team1 = team1
-        self.team2 = team2
-        self.score1 = score1
-        self.score2 = score2
+        self.away_team = away_team
+        self.home_team = home_team
+        self.away_score = away_score
+        self.home_score = home_score
         self.prob_win = None
         self.sim_result = None
-        self.played = score1 is not None and score2 is not None
+        self.played = away_score is not None and home_score is not None
 
     def __repr__(self):
-        return '''{date} {team1} {neutral} {team2}: {score}'''.format(
-            date=self.date.date(),
-            team1=self.team1.team_id,
-            team2=self.team2.team_id,
+        return '''Week {week} {team1} {neutral} {team2}: {score}'''.format(
+            week=self.week,
+            team1=self.away_team.team_id,
+            team2=self.home_team.team_id,
             neutral='vs' if self.neutral else 'at',
-            score='{}-{}'.format(self.score1, self.score2)
+            score='{}-{}'.format(self.away_score, self.home_score)
             if self.played else 'Unplayed',
         )
 
@@ -51,29 +49,17 @@ class Game(object):
 
 
 class Season(object):
-    def __init__(self, year=None, teamfile=None):
+    def __init__(self, year=None):
         self.year = year
-        self.teams = self.__load_teams(teamfile)
-        self.games = set()
+        self.teams = None
+        self.games = None
+        self.spreadsheet = None
+        self.worksheet = None
 
     def simulate(self):
         for game in self.games:
             game.simulate()
-
-    @staticmethod
-    def __load_teams(fl):
-        with open(fl) as f:
-            teams_json = json.load(f)
-        teams = {
-            team.get('team_id'): Team(
-                team_id=team.get('team_id'),
-                name=team.get('name'),
-                conference=team.get('conference'),
-                division=team.get('division'),
-            )
-            for team in teams_json
-        }
-        return teams
+        return self
 
     def load_gspread(self):
         scope = [
@@ -88,3 +74,40 @@ class Season(object):
         self.spreadsheet = gspread.authorize(credentials)
 
         self.worksheet = self.spreadsheet.open("NFL 2018 Expected Wins")
+
+        scheduled_games = pandas.DataFrame(
+            self.worksheet.get_worksheet(0).get_all_records())[[
+                'week',
+                'away_team',
+                'home_team',
+                'home_adv',
+                'score_away',
+                'score_home',
+                'vegas_spread',
+            ]]
+
+        teaminfo = pandas.DataFrame(
+            self.worksheet.get_worksheet(6).get_all_records())
+
+        self.teams = {
+            x['team_name']: Team(
+                team_id=x['team_id'],
+                name=x['team_name'],
+                conference=x['conference'],
+                division=x['division'],
+            )
+            for x in teaminfo.to_dict('records')
+        }
+
+        self.games = [
+            Game(
+                week=x.get('week'),
+                season=2018,
+                neutral=x.get('home_adv') == 0,
+                playoff=False,
+                away_team=self.teams.get(x.get('away_team')),
+                home_team=self.teams.get(x.get('home_team')),
+                away_score=None if x['score_away'] == '' else x['score_away'],
+                home_score=None if x['score_home'] == '' else x['score_home'],
+            ) for x in scheduled_games.to_dict('records')
+        ]
