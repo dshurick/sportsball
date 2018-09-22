@@ -1,5 +1,4 @@
 
-
 library(ffanalytics)
 library(rvest)
 
@@ -10,8 +9,8 @@ xmldoc <-
   dtf <- tibble::tibble(
     elo_rating =
       xmldoc %>%
-        html_nodes("td.elo") %>%
-        html_text(),
+      html_nodes("td.elo") %>%
+      html_text(),
     team = xmldoc %>%
       html_nodes(".full") %>%
       html_text(),
@@ -38,7 +37,15 @@ xmldoc <-
       html_text()
   ) %>%
     dplyr::mutate_at(
-      .vars = vars(elo_rating, wins, losses, make_playoffs, win_division, week1bye, super_bowl),
+      .vars = vars(
+        elo_rating,
+        wins,
+        losses,
+        make_playoffs,
+        win_division,
+        week1bye,
+        super_bowl
+      ),
       .funs = parse_number
     ) %>%
     dplyr::mutate_at(
@@ -52,17 +59,17 @@ parse_draft <- function(x, ...) {
   players <- xmldoc %>%
     html_nodes(".tableBody td:nth-child(2)") %>%
     html_text()
-
+  
   costs <- xmldoc %>%
     html_nodes(".tableBody td~ td+ td") %>%
     html_text()
-
+  
   teamnames <- xmldoc %>%
     html_nodes(".tableHead td") %>%
     html_text() %>%
     stringr::str_trim() %>%
     stringr::str_squish()
-
+  
   dtf <- dplyr::bind_cols(
     players %>%
       stringr::str_match(
@@ -70,53 +77,39 @@ parse_draft <- function(x, ...) {
       ) %>%
       tibble::as_tibble() %>%
       dplyr::mutate(
-        player = case_when(
-          is.na(V3) ~ V6,
-          TRUE ~ V3
-        ),
-        pos = case_when(
-          is.na(V5) ~ V7,
-          TRUE ~ V5
-        ),
+        player = case_when(is.na(V3) ~ V6,
+                           TRUE ~ V3),
+        pos = case_when(is.na(V5) ~ V7,
+                        TRUE ~ V5),
         team = V4
       ) %>%
       dplyr::select(player, team, pos),
     tibble::tibble(paid = costs)
   ) %>%
-    dplyr::mutate(
-      paid = parse_number(paid),
-      ownder = rep(teamnames, each = 18)
-    )
+    dplyr::mutate(paid = parse_number(paid),
+                  ownder = rep(teamnames, each = 18))
   return(dtf)
 }
 
 draftresults <-
-  map_dfr(
-    2013:2017,
-    ~parse_draft(sprintf(
-      "./../data/raw/ESPN_auction_%d.html", .x
-    )) %>%
-      dplyr::mutate(season = .x)
-  )
+  map_dfr(2013:2017,
+          ~ parse_draft(sprintf("./data/raw/ESPN_auction_%d.html", .x)) %>%
+            dplyr::mutate(season = .x))
 
 byseason <- draftresults %>%
   dplyr::mutate(value = paid - 1) %>%
   dplyr::group_by(season, pos) %>%
-  dplyr::summarise(
-    num = sum(value > 0),
-    total_value = sum(value)
-  )
+  dplyr::summarise(num = sum(value > 0),
+                   total_value = sum(value))
 
 draftresults %>%
   dplyr::mutate(value = paid - 1) %>%
   dplyr::group_by(pos) %>%
-  dplyr::summarise(
-    num = sum(value > 0) / 5,
-    total_value = sum(value) / 5
-  ) %>%
-  dplyr::mutate(total_value = total_value / sum(total_value))
+  dplyr::summarise(num = sum(value > 0) / 5,
+                   total_value = sum(value) / 5)
 
-my_scrape <- readr::read_rds("./data/interim/scrape_data_20180908.rds")
+my_scrape <-
+  readr::read_rds("./data/interim/scrape_data_20180910.rds")
 
 scoring_rules <- list(
   pass = list(
@@ -133,7 +126,9 @@ scoring_rules <- list(
     rush_yds = 0.1,
     rush_att = 0,
     rush_tds = 6,
-    rush_100_yds = 3, rush_150_yds = 3, rush_200_yds = 6
+    rush_100_yds = 3,
+    rush_150_yds = 3,
+    rush_200_yds = 6
   ),
   rec = list(
     all_pos = TRUE,
@@ -141,7 +136,8 @@ scoring_rules <- list(
     rec_yds = 0.1,
     rec_tds = 6,
     rec_100_yds = 3,
-    rec_150_yds = 3, rec_200_yds = 6
+    rec_150_yds = 3,
+    rec_200_yds = 6
   ),
   misc = list(
     all_pos = TRUE,
@@ -181,45 +177,56 @@ scoring_rules <- list(
 my_projections <-
   projections_table(
     my_scrape,
+    src_weights = c(
+      CBS = 0.344,
+      Yahoo = 0.400,
+      ESPN = 0.329,
+      NFL = 0,
+      FFToday = 0.379,
+      NumberFire = 0.322,
+      FantasyPros = 0.000,
+      FantasySharks = 0.327,
+      FantasyFootballNerd = 0.000,
+      Walterfootball = 0,
+      RTSports = 0.330,
+      FantasyData = 0.428,
+      Fleaflicker = 0.428
+    ),
     scoring_rules = scoring_rules,
     vor_baseline = c(
-      QB = 23,
-      RB = 40,
-      WR = 43,
-      TE = 10,
-      K = 2,
-      DST = 4
+      QB = 24,
+      RB = 41,
+      WR = 44,
+      TE = 11,
+      K = 3,
+      DST = 5
     )
   )
 
 add_aav <-
   function(projection_table,
-             sources = c("RTS", "ESPN", "Yahoo", "NFL")) {
+           sources = c("RTS", "ESPN", "Yahoo", "NFL")) {
     sources <- match.arg(sources, several.ok = TRUE)
     lg_type <- attr(projection_table, "lg_type")
     season <- attr(projection_table, "season")
     week <- attr(projection_table, "week")
     if (week != 0) {
       warning("AAV data is not available for weekly data",
-        call. = FALSE
-      )
+              call. = FALSE)
       return(projection_table)
     }
     adp_tbl <- get_adp(sources, type = "AAV") %>%
       select(1, length(.)) %>%
-      rename_at(length(.), ~function(x)
+      rename_at(length(.), ~ function(x)
         return("aav"))
-
+    
     projection_table <- left_join(projection_table, adp_tbl,
-      by = "id"
-    )
+                                  by = "id")
     projection_table %>%
       `attr<-`(which = "season", season) %>%
       `attr<-`(which = "week", week) %>%
-      `attr<-`(
-        which = "lg_type",
-        lg_type
-      )
+      `attr<-`(which = "lg_type",
+               lg_type)
   }
 
 my_projections <- my_projections %>%
@@ -229,6 +236,80 @@ my_projections <- my_projections %>%
   add_aav(sources = "ESPN")
 
 my_projections <- my_projections %>% add_player_info()
+
+.tbl <- my_projections %>%
+  dplyr::filter(avg_type == 'weighted') %>%
+  dplyr::mutate(player = sprintf("%s %s (%s)", first_name, last_name, team)) %>%
+  dplyr::select(
+    id,
+    player,
+    avg_type,
+    rank,
+    team,
+    age,
+    exp,
+    sdPts = sd_pts,
+    pos_rank,
+    pos,
+    points,
+    points_vor,
+    risk,
+    drop_off,
+    ecr,
+    adp,
+    adp_diff,
+    aav
+  )
+
+library(tidyverse)
+library(magrittr)
+library(Rglpk)
+library(googlesheets)
+
+worksheet <- googlesheets::gs_title("NFL Draft 2018")
+
+gs_edit_cells(
+  worksheet,
+  ws = 'Sheet1',
+  input = .tbl %>%
+    dplyr::select(id, player, rank, team),
+  anchor = "A1",
+  col_names = TRUE,
+  trim = TRUE
+)
+
+worksheet <- googlesheets::gs_title("NFL Draft 2018")
+
+gs_edit_cells(
+  worksheet,
+  ws = 'Sheet1',
+  input = .tbl %>%
+    dplyr::select(exp, sdPts, pos_rank, pos),
+  anchor = "E1",
+  col_names = TRUE
+)
+
+worksheet <- googlesheets::gs_title("NFL Draft 2018")
+
+gs_edit_cells(
+  worksheet,
+  ws = 'Sheet1',
+  input = .tbl %>%
+    dplyr::select(points, points_vor, risk, drop_off),
+  anchor = "I1",
+  col_names = TRUE
+)
+
+worksheet <- googlesheets::gs_title("NFL Draft 2018")
+
+gs_edit_cells(
+  worksheet,
+  ws = 'Sheet1',
+  input = .tbl %>%
+    dplyr::select(ecr, adp, aav),
+  anchor = "M1",
+  col_names = TRUE
+)
 
 appdata <- my_projections %>%
   dplyr::mutate(`Player (Team)` = sprintf("%s %s (%s)", first_name, last_name, team)) %>%
