@@ -1,5 +1,4 @@
 
-
 library(ffanalytics)
 
 my_scrape <- ffanalytics::scrape_data(
@@ -11,14 +10,13 @@ my_scrape <- ffanalytics::scrape_data(
     "FFToday",
     "NumberFire",
     "Yahoo",
-    "NFL",
     "RTSports",
     "Walterfootball"
   ),
   pos = c("QB", "RB", "WR", "TE", "DST", "K"),
   season = 2018,
-  week = 0
+  week = 2
 )
 
 my_scrape %>%
-  readr::write_rds("./data/interim/scrape_data_20180908.rds")
+  readr::write_rds("./data/interim/scrape_data_20180910.rds")
