@@ -1,5 +1,0 @@
-sportsball
-==========
-
-TODO:
-- Write README
