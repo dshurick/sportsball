@@ -11,10 +11,9 @@ python:
   - "3.7-dev"  # 3.7 development branch
 # command to install dependencies
 install:
-  - python python-package/setup.py -q install
+  - cd python-package
+  - python setup.py install
 # command to run tests
 script:
   - pytest
 
-before_install:
-  - export PYTHONPATH=${PYTHONPATH}:${PWD}/python-package

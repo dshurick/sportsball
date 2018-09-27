@@ -1,12 +1,30 @@
 
-
-
-
 library(tidyverse)
 library(magrittr)
 library(Rglpk)
 library(googlesheets)
+library(Matrix)
 
+worksheet18 <- googlesheets::gs_title("NFL 2018 Expected Wins")
+
+# pctwin_by_pntsprd <- gs_read(
+#   worksheet18,
+#   ws = "pctwin_by_pntsprd",
+#   col_types = cols(
+#     .default = col_number()
+#   )
+# )
+# 
+# logistic <- function(x) {
+#   1 / (1 + exp(-x))
+# }
+# 
+# fit <-
+#   glm(cbind(wins, games - wins) ~ spread,
+#       data = pctwin_by_pntsprd,
+#       family = binomial())
+# 
+# pctwin_by_pntsprd$estimated_prob <- predict(fit, pctwin_by_pntsprd, type = "response")
 
 load_data <- function() {
   worksheet17 <- googlesheets::gs_title("NFL 2017 Expected Wins")
@@ -87,17 +105,17 @@ load_data <- function() {
         home_win
       ) %>%
       dplyr::mutate(
-        five38_home_rating = five38_home_rating + 65,
+        # five38_home_rating = five38_home_rating + 65,
         season = 2018
       )
   ) %>%
-    dplyr::mutate(week = factor(week))
+    dplyr::mutate(week = factor(week),
+                  gameid = 1:n())
 
   return(dtf)
 }
 
 dtf <- load_data()
-
 
 fit_scorex <- function(.dtf) {
   fitdf <- dplyr::bind_rows(
@@ -120,15 +138,15 @@ fit_scorex <- function(.dtf) {
         home_win = 1 - home_win
       )
   ) %>%
-    dplyr::filter(home_win == 0.0 | home_win == 1.0)
+    dplyr::filter(home_win == 0.0 | home_win == 1.0,
+                  !is.na(scorex_away_rating))
 
   fit <- glm(
     as.factor(home_win) ~ scorex_away_rating + scorex_home_rating + home_adv - 1,
-    data = fitdf %>%
-      dplyr::filter(home_win == 0.0 | home_win == 1.0),
+    data = fitdf,
     family = binomial()
   )
-
+  
   return(fit)
 }
 
@@ -137,6 +155,7 @@ fit_vegas <- function(.dtf) {
     .dtf %>%
       dplyr::filter(!is.na(home_win), !is.na(vegas_spread)) %>%
       dplyr::select(
+        gameid,
         vegas_spread,
         home_win,
         home_adv
@@ -145,6 +164,7 @@ fit_vegas <- function(.dtf) {
     .dtf %>%
       dplyr::filter(!is.na(home_win), !is.na(vegas_spread)) %>%
       dplyr::select(
+        gameid,
         vegas_spread,
         home_win,
         home_adv
@@ -206,9 +226,6 @@ vegas_forecast <- function(.dtf) {
   return(fit)
 }
 
-
-
-
 fit_poisson <- function(.dtf) {
   fitdf <- dplyr::bind_rows(
     .dtf %>%
@@ -245,14 +262,335 @@ fit_poisson <- function(.dtf) {
   return(fit)
 }
 
-fit <- dtf %>%
+fit1 <- dtf %>%
   dplyr::filter(season == 2018) %>%
   fit_scorex()
 
-fit <- dtf %>%
+fit2 <- dtf %>%
   dplyr::filter(season == 2018) %>%
   fit_vegas()
 
-fit <- dtf %>%
+fit3 <- dtf %>%
   dplyr::filter(season == 2018) %>%
   vegas_forecast()
+
+
+fitdf <- dplyr::bind_rows(
+  dtf %>%
+    dplyr::filter(!is.na(vegas_spread)) %>%
+    dplyr::select(
+      gameid,
+      away_team,
+      home_team,
+      vegas_spread,
+      home_adv
+    ) %>%
+    dplyr::mutate(
+      vegas_spread = -vegas_spread
+    ),
+  dtf %>%
+    dplyr::filter(!is.na(vegas_spread)) %>%
+    dplyr::select(
+      gameid,
+      away_team = home_team,
+      home_team = away_team,
+      vegas_spread,
+      home_adv
+    ) %>%
+    dplyr::mutate(
+      home_adv = -home_adv)
+)
+
+foldid <-
+  groupKFold(fitdf$gameid, k = length(unique(fitdf$gameid)))
+
+fitControl <- trainControl(
+  method = "cv",
+  index = foldid,
+  search = "grid",
+  allowParallel = TRUE
+)
+
+glmnetGrid <-  expand.grid(lambda = exp(seq(-6, 0, length.out = 11)),
+                           alpha = seq(0, 1, length.out = 11))
+
+X <- sparse.model.matrix(
+  vegas_spread ~ away_team + home_team + home_adv,
+  data = fitdf,
+  contrasts.arg = list(away_team = "contr.sum", home_team = "contr.sum")
+)
+
+vegas_forecast_fit <-
+  train(
+    x = X,
+    y = fitdf$vegas_spread,
+    method = "glmnet",
+    trControl = fitControl,
+    tuneGrid = glmnetGrid,
+    standardize = FALSE,
+    intercept = FALSE
+  )
+
+round(coef(vegas_forecast_fit$finalModel, s = 0.02732372)[,1] * 1000, 6) / 1000
+
+
+
+
+library(caret)
+library(doParallel)
+cl <- makePSOCKcluster(5)
+registerDoParallel(cl)
+
+fitdf <- dplyr::bind_rows(
+  dtf %>%
+    dplyr::filter(!is.na(home_win)) %>%
+    dplyr::select(
+      gameid,
+      season,
+      sagarin_away_rating,
+      sagarin_home_rating,
+      five38_away_rating,
+      five38_home_rating,
+      massey_away_rating,
+      massey_home_rating,
+      scorex_away_rating,
+      scorex_home_rating,
+      vegas_spread,
+      home_win,
+      home_adv
+    ) %>%
+    dplyr::mutate(home_adv = 1),
+  dtf %>%
+    dplyr::filter(!is.na(home_win)) %>%
+    dplyr::select(
+      gameid,
+      season,
+      sagarin_away_rating = sagarin_home_rating,
+      sagarin_home_rating = sagarin_away_rating,
+      five38_away_rating = five38_home_rating,
+      five38_home_rating = five38_away_rating,
+      massey_away_rating = massey_home_rating,
+      massey_home_rating = massey_away_rating,
+      scorex_away_rating = scorex_home_rating,
+      scorex_home_rating = scorex_away_rating,
+      vegas_spread,
+      home_win,
+      home_adv
+    ) %>%
+    dplyr::mutate(
+      home_adv = -home_adv,
+      home_win = 1 - home_win,
+      vegas_spread = -vegas_spread
+    )
+) %>%
+  dplyr::filter(home_win == 0.0 | home_win == 1.0) %>%
+  dplyr::mutate(home_win = factor(home_win, labels = c("Away", "Home")),
+                season = factor(season))
+
+
+dfvegas <- fitdf %>%
+  dplyr::select(gameid, home_adv, vegas_spread, home_win) %>%
+  tidyr::drop_na()
+
+foldid <-
+  groupKFold(dfvegas$gameid, k = length(unique(dfvegas$gameid)))
+
+fitControl <- trainControl(
+  method = "cv",
+  index = foldid,
+  search = "grid",
+  classProbs = TRUE,
+  savePredictions = TRUE,
+  summaryFunction = mnLogLoss,
+  allowParallel = TRUE
+)
+
+glmnetGrid <-  expand.grid(lambda = exp(seq(-1.384107, 0, length.out = 11)),
+                           alpha = seq(0, 1, length.out = 11))
+
+
+vegas_fit <-
+  train(
+    home_win ~ home_adv + vegas_spread,
+    data = dfvegas,
+    method = "glmnet",
+    metric = "logLoss",
+    trControl = fitControl,
+    tuneGrid = glmnetGrid,
+    intercept = FALSE
+  )
+
+round(coef(vegas_fit$finalModel, s = 0.5005471)[,1] * 1000, 6) / 1000
+
+dfvegas$pred <- predict(vegas_fit, newdata = dfvegas, type = "prob")[,2]
+
+
+
+dfscorex <- fitdf %>%
+  dplyr::select(gameid, home_adv, scorex_away_rating, scorex_home_rating, home_win) %>%
+  tidyr::drop_na()
+
+foldid <-
+  groupKFold(dfscorex$gameid, k = length(unique(dfscorex$gameid)))
+
+fitControl <- trainControl(
+  method = "cv",
+  index = foldid,
+  search = "grid",
+  classProbs = TRUE,
+  savePredictions = TRUE,
+  summaryFunction = mnLogLoss,
+  allowParallel = TRUE
+)
+
+glmnetGrid <-  expand.grid(lambda = exp(seq(-1.384107, 0, length.out = 11)),
+                           alpha = seq(0, 1, length.out = 11))
+
+scorex_fit <-
+  train(
+    home_win ~ home_adv + scorex_away_rating + scorex_home_rating,
+    data = dfscorex,
+    method = "glmnet",
+    metric = "logLoss",
+    trControl = fitControl,
+    tuneGrid = glmnetGrid,
+    intercept = FALSE
+  )
+
+round(coef(scorex_fit$finalModel, s = 0.3304547)[,1] * 1000, 6) / 1000
+
+dfvegas$pred <- predict(vegas_fit, newdata = dfvegas, type = "prob")[,2]
+
+
+
+dfmassey <- fitdf %>%
+  dplyr::select(gameid, season, home_adv, massey_away_rating, massey_home_rating, home_win) %>%
+  tidyr::drop_na()
+
+foldid <-
+  groupKFold(dfmassey$gameid, k = length(unique(dfmassey$gameid)))
+
+fitControl <- trainControl(
+  method = "cv",
+  index = foldid,
+  search = "grid",
+  classProbs = TRUE,
+  savePredictions = TRUE,
+  summaryFunction = mnLogLoss,
+  allowParallel = TRUE
+)
+
+glmnetGrid <-  expand.grid(lambda = exp(seq(-7, -4, length.out = 11)),
+                           alpha = seq(0, 1, length.out = 11))
+
+massey_fit <-
+  train(
+    home_win ~ season * (home_adv + massey_away_rating + massey_home_rating),
+    data = dfmassey,
+    method = "glmnet",
+    metric = "logLoss",
+    trControl = fitControl,
+    tuneGrid = glmnetGrid,
+    intercept = FALSE
+  )
+
+round(coef(massey_fit$finalModel, s = 0.007446583)[,1] * 1000, 6) / 1000
+
+dfvegas$pred <- predict(vegas_fit, newdata = dfvegas, type = "prob")[,2]
+
+
+
+dfcustom <- fitdf %>%
+  dplyr::select(
+    gameid,
+    season,
+    home_adv,
+    sagarin_away_rating,
+    sagarin_home_rating,
+    massey_away_rating,
+    massey_home_rating,
+    five38_away_rating,
+    five38_home_rating,
+    home_win
+  ) %>%
+  tidyr::drop_na()
+
+foldid <-
+  groupKFold(dfcustom$gameid, k = length(unique(dfcustom$gameid)))
+
+fitControl <- trainControl(
+  method = "cv",
+  index = foldid,
+  search = "grid",
+  classProbs = TRUE,
+  savePredictions = TRUE,
+  summaryFunction = mnLogLoss,
+  allowParallel = TRUE
+)
+
+glmnetGrid <-  expand.grid(lambda = exp(seq(-6.3, -4.9, length.out = 11)),
+                           alpha = seq(0, 1, length.out = 11))
+
+custom_fit <-
+  train(
+    home_win ~ season * (
+      home_adv +
+        sagarin_away_rating +
+        sagarin_home_rating +
+        massey_away_rating +
+        massey_home_rating +
+        five38_away_rating +
+        five38_home_rating
+    ),
+    data = dfcustom,
+    method = "glmnet",
+    metric = "logLoss",
+    trControl = fitControl,
+    tuneGrid = glmnetGrid,
+    intercept = FALSE
+  )
+
+round(coef(custom_fit$finalModel, s = 0.004253556)[,1] * 1000, 6) / 1000
+
+dfvegas$pred <- predict(vegas_fit, newdata = dfvegas, type = "prob")[,2]
+
+
+
+
+scorex_df <- h2o::as.h2o(fitdf, destination_frame = "scorex_df")
+scorex_df$home_win = as.factor(scorex_df$home_win)
+scorex_df$gameid = as.factor(scorex_df$gameid)
+scorex_df$season = as.factor(scorex_df$season)
+
+# GBM hyperparamters
+glm_params1 <- list(alpha = seq(0, 1, length.out = 11))
+
+# Train and validate a cartesian grid of GBMs
+glm_grid1 <- h2o.grid(
+  "glm",
+  x = c("season", "massey_away_rating", "massey_home_rating", "home_adv"),
+  y = "home_win",
+  grid_id = "glm_grid1",
+  family = "binomial",
+  fold_column = "gameid",
+  intercept = FALSE,
+  lambda_search = TRUE,
+  training_frame = scorex_df,
+  hyper_params = glm_params1
+)
+
+fit <-
+  h2o::h2o.glm(
+    x = c(
+      "season",
+      "massey_away_rating",
+      "massey_home_rating",
+      "home_adv"
+    ),
+    y = "home_win",
+    training_frame = scorex_df,
+    family = "binomial",
+    fold_column = "gameid",
+    alpha = 0,
+    lambda_search = TRUE
+  )
