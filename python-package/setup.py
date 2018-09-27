@@ -27,6 +27,10 @@ REQUIRED = [
     'pandas',
     'oauth2client',
     'click',
+    'scipy',
+    'BeautifulSoup4',
+    'requests',
+    'selenium',
 ]
 
 # What packages are optional?
