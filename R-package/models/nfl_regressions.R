@@ -4,6 +4,8 @@ library(magrittr)
 library(Rglpk)
 library(googlesheets)
 library(Matrix)
+library(glmnet)
+library(caret)
 
 worksheet18 <- googlesheets::gs_title("NFL 2018 Expected Wins")
 
@@ -196,6 +198,9 @@ vegas_forecast <- function(.dtf) {
         home_team,
         vegas_spread,
         home_adv
+      ) %>%
+      dplyr::mutate(
+        vegas_spread = -vegas_spread
       ),
     .dtf %>%
       dplyr::filter(!is.na(vegas_spread)) %>%
@@ -206,8 +211,7 @@ vegas_forecast <- function(.dtf) {
         home_adv
       ) %>%
       dplyr::mutate(
-        home_adv = -home_adv,
-        vegas_spread = -vegas_spread
+        home_adv = -home_adv
       )
   )
 
@@ -274,32 +278,39 @@ fit3 <- dtf %>%
   dplyr::filter(season == 2018) %>%
   vegas_forecast()
 
+fit4 <- dtf %>%
+  dplyr::filter(season == 2018) %>%
+  fit_poisson()
+
+
+
+
+
 
 fitdf <- dplyr::bind_rows(
   dtf %>%
-    dplyr::filter(!is.na(vegas_spread)) %>%
+    dplyr::filter(season == 2018, !is.na(home_win)) %>%
     dplyr::select(
       gameid,
       away_team,
       home_team,
-      vegas_spread,
+      points = score_home,
       home_adv
-    ) %>%
-    dplyr::mutate(
-      vegas_spread = -vegas_spread
     ),
   dtf %>%
-    dplyr::filter(!is.na(vegas_spread)) %>%
+    dplyr::filter(season == 2018, !is.na(home_win)) %>%
     dplyr::select(
       gameid,
       away_team = home_team,
       home_team = away_team,
-      vegas_spread,
+      points = score_away,
       home_adv
     ) %>%
     dplyr::mutate(
       home_adv = -home_adv)
 )
+
+library(caret)
 
 foldid <-
   groupKFold(fitdf$gameid, k = length(unique(fitdf$gameid)))
@@ -311,35 +322,95 @@ fitControl <- trainControl(
   allowParallel = TRUE
 )
 
-glmnetGrid <-  expand.grid(lambda = exp(seq(-6, 0, length.out = 11)),
+glmnetGrid <-  expand.grid(lambda = exp(seq(-1.2, 0.4, length.out = 11)),
                            alpha = seq(0, 1, length.out = 11))
 
 X <- sparse.model.matrix(
-  vegas_spread ~ away_team + home_team + home_adv,
+  points ~ away_team + home_team + home_adv,
   data = fitdf,
   contrasts.arg = list(away_team = "contr.sum", home_team = "contr.sum")
-)
+)[, -1]
 
-vegas_forecast_fit <-
+poisson_fit <-
   train(
     x = X,
-    y = fitdf$vegas_spread,
+    y = fitdf$points,
     method = "glmnet",
+    family="poisson",
+    trControl = fitControl,
+    tuneGrid = glmnetGrid,
+    standardize = FALSE,
+    intercept = TRUE
+  )
+
+round(coef(poisson_fit$finalModel, s = 0.67032)[,1] * 1000, 6) / 1000
+
+
+fitdf <- dplyr::bind_rows(
+  dtf %>%
+    dplyr::filter(season == 2018, home_win == 1.0 |
+                    home_win == 0.0) %>%
+    dplyr::select(gameid,
+                  away_team,
+                  home_team,
+                  home_win,
+                  home_adv),
+  dtf %>%
+    dplyr::filter(season == 2018, home_win == 1.0 |
+                    home_win == 0.0) %>%
+    dplyr::select(
+      gameid,
+      away_team = home_team,
+      home_team = away_team,
+      home_win,
+      home_adv
+    ) %>%
+    dplyr::mutate(home_adv = -home_adv,
+                  home_win = 1 - home_win)
+)
+
+library(caret)
+
+foldid <-
+  groupKFold(fitdf$gameid, k = length(unique(fitdf$gameid)))
+
+fitControl <- trainControl(
+  method = "cv",
+  index = foldid,
+  search = "grid",
+  classProbs = TRUE,
+  savePredictions = TRUE,
+  summaryFunction = twoClassSummary,
+  allowParallel = TRUE
+)
+
+glmnetGrid <-  expand.grid(lambda = exp(seq(-8, 2, length.out = 11)),
+                           alpha = 0)
+
+X <- sparse.model.matrix(
+  home_win ~ away_team + home_team + home_adv,
+  data = fitdf,
+  contrasts.arg = list(away_team = "contr.sum", home_team = "contr.sum")
+)[, -1]
+
+binomial_fit <-
+  train(
+    x = X,
+    y = factor(fitdf$home_win, labels = c("no", "yes")),
+    method = "glmnet",
+    family = "binomial",
     trControl = fitControl,
     tuneGrid = glmnetGrid,
     standardize = FALSE,
     intercept = FALSE
   )
 
-round(coef(vegas_forecast_fit$finalModel, s = 0.02732372)[,1] * 1000, 6) / 1000
+round(coef(binomial_fit$finalModel, s = 0.08374323)[,1] * 1000, 6) / 1000
 
 
 
 
-library(caret)
-library(doParallel)
-cl <- makePSOCKcluster(5)
-registerDoParallel(cl)
+
 
 fitdf <- dplyr::bind_rows(
   dtf %>%
@@ -388,9 +459,12 @@ fitdf <- dplyr::bind_rows(
                 season = factor(season))
 
 
-dfvegas <- fitdf %>%
-  dplyr::select(gameid, home_adv, vegas_spread, home_win) %>%
-  tidyr::drop_na()
+dfvegas <- dtf %>%
+  dplyr::filter(!is.na(home_win)) %>%
+  dplyr::select(gameid, vegas_spread, home_win) %>%
+  tidyr::drop_na() %>%
+  dplyr::filter(home_win == 0.0 | home_win == 1.0) %>%
+  dplyr::mutate(home_win = factor(home_win, labels = c("Away", "Home")))
 
 foldid <-
   groupKFold(dfvegas$gameid, k = length(unique(dfvegas$gameid)))
@@ -399,19 +473,26 @@ fitControl <- trainControl(
   method = "cv",
   index = foldid,
   search = "grid",
-  classProbs = TRUE,
-  savePredictions = TRUE,
-  summaryFunction = mnLogLoss,
   allowParallel = TRUE
 )
 
-glmnetGrid <-  expand.grid(lambda = exp(seq(-1.384107, 0, length.out = 11)),
+glmnetGrid <-  expand.grid(lambda = exp(seq(-2, 1, length.out = 11)),
                            alpha = seq(0, 1, length.out = 11))
+
+vegas_fit <-
+  train(
+    home_win ~ vegas_spread,
+    data = dfvegas,
+    method = "glmnet",
+    trControl = fitControl,
+    tuneGrid = glmnetGrid,
+    intercept = FALSE
+  )
 
 
 vegas_fit <-
   train(
-    home_win ~ home_adv + vegas_spread,
+    home_win ~ vegas_spread,
     data = dfvegas,
     method = "glmnet",
     metric = "logLoss",
@@ -420,7 +501,7 @@ vegas_fit <-
     intercept = FALSE
   )
 
-round(coef(vegas_fit$finalModel, s = 0.5005471)[,1] * 1000, 6) / 1000
+round(coef(vegas_fit$finalModel, s = 0.2231302)[,1] * 1000, 6) / 1000
 
 dfvegas$pred <- predict(vegas_fit, newdata = dfvegas, type = "prob")[,2]
 
@@ -443,7 +524,7 @@ fitControl <- trainControl(
   allowParallel = TRUE
 )
 
-glmnetGrid <-  expand.grid(lambda = exp(seq(-1.384107, 0, length.out = 11)),
+glmnetGrid <-  expand.grid(lambda = exp(seq(-4, -1.245696, length.out = 11)),
                            alpha = seq(0, 1, length.out = 11))
 
 scorex_fit <-
@@ -457,7 +538,7 @@ scorex_fit <-
     intercept = FALSE
   )
 
-round(coef(scorex_fit$finalModel, s = 0.3304547)[,1] * 1000, 6) / 1000
+round(coef(scorex_fit$finalModel, s = 0.07259582)[,1] * 1000, 6) / 1000
 
 dfvegas$pred <- predict(vegas_fit, newdata = dfvegas, type = "prob")[,2]
 
@@ -480,7 +561,7 @@ fitControl <- trainControl(
   allowParallel = TRUE
 )
 
-glmnetGrid <-  expand.grid(lambda = exp(seq(-7, -4, length.out = 11)),
+glmnetGrid <-  expand.grid(lambda = exp(seq(-7, -5.6, length.out = 11)),
                            alpha = seq(0, 1, length.out = 11))
 
 massey_fit <-
@@ -494,65 +575,13 @@ massey_fit <-
     intercept = FALSE
   )
 
-round(coef(massey_fit$finalModel, s = 0.007446583)[,1] * 1000, 6) / 1000
+round(coef(massey_fit$finalModel, s = 0.001836305)[,1] * 1000, 6) / 1000
 
 dfvegas$pred <- predict(vegas_fit, newdata = dfvegas, type = "prob")[,2]
 
 
 
-dfcustom <- fitdf %>%
-  dplyr::select(
-    gameid,
-    season,
-    home_adv,
-    sagarin_away_rating,
-    sagarin_home_rating,
-    massey_away_rating,
-    massey_home_rating,
-    five38_away_rating,
-    five38_home_rating,
-    home_win
-  ) %>%
-  tidyr::drop_na()
 
-foldid <-
-  groupKFold(dfcustom$gameid, k = length(unique(dfcustom$gameid)))
-
-fitControl <- trainControl(
-  method = "cv",
-  index = foldid,
-  search = "grid",
-  classProbs = TRUE,
-  savePredictions = TRUE,
-  summaryFunction = mnLogLoss,
-  allowParallel = TRUE
-)
-
-glmnetGrid <-  expand.grid(lambda = exp(seq(-6.3, -4.9, length.out = 11)),
-                           alpha = seq(0, 1, length.out = 11))
-
-custom_fit <-
-  train(
-    home_win ~ season * (
-      home_adv +
-        sagarin_away_rating +
-        sagarin_home_rating +
-        massey_away_rating +
-        massey_home_rating +
-        five38_away_rating +
-        five38_home_rating
-    ),
-    data = dfcustom,
-    method = "glmnet",
-    metric = "logLoss",
-    trControl = fitControl,
-    tuneGrid = glmnetGrid,
-    intercept = FALSE
-  )
-
-round(coef(custom_fit$finalModel, s = 0.004253556)[,1] * 1000, 6) / 1000
-
-dfvegas$pred <- predict(vegas_fit, newdata = dfvegas, type = "prob")[,2]
 
 
 
@@ -594,3 +623,100 @@ fit <-
     alpha = 0,
     lambda_search = TRUE
   )
+
+
+
+dffive38 <- fitdf %>%
+  dplyr::select(
+    gameid,
+    season,
+    home_adv,
+    five38_away_rating,
+    five38_home_rating,
+    home_win
+  ) %>%
+  tidyr::drop_na()
+
+foldid <-
+  groupKFold(dffive38$gameid, k = length(unique(dffive38$gameid)))
+
+fitControl <- trainControl(
+  method = "cv",
+  index = foldid,
+  search = "grid",
+  classProbs = TRUE,
+  savePredictions = TRUE,
+  summaryFunction = mnLogLoss,
+  allowParallel = TRUE
+)
+
+glmnetGrid <-  expand.grid(lambda = exp(seq(-3.78, -2.52, length.out = 11)),
+                           alpha = seq(0, 1, length.out = 11))
+
+custom_fit <-
+  train(
+    home_win ~ season * (
+      home_adv +
+        five38_away_rating +
+        five38_home_rating
+    ),
+    data = dffive38,
+    method = "glmnet",
+    metric = "logLoss",
+    trControl = fitControl,
+    tuneGrid = glmnetGrid,
+    intercept = FALSE
+  )
+
+round(coef(custom_fit$finalModel, s = 0.05513338)[,1] * 1000, 6) / 1000
+
+dfvegas$pred <- predict(vegas_fit, newdata = dfvegas, type = "prob")[,2]
+
+
+
+
+dfsagarin <- fitdf %>%
+  dplyr::select(
+    gameid,
+    season,
+    home_adv,
+    sagarin_away_rating,
+    sagarin_home_rating,
+    home_win
+  ) %>%
+  tidyr::drop_na()
+
+foldid <-
+  groupKFold(dfsagarin$gameid, k = length(unique(dfsagarin$gameid)))
+
+fitControl <- trainControl(
+  method = "cv",
+  index = foldid,
+  search = "grid",
+  classProbs = TRUE,
+  savePredictions = TRUE,
+  summaryFunction = mnLogLoss,
+  allowParallel = TRUE
+)
+
+glmnetGrid <-  expand.grid(lambda = exp(seq(-6, 0, length.out = 11)),
+                           alpha = seq(0, 1, length.out = 11))
+
+sagarin_fit <-
+  train(
+    home_win ~ season * (
+      home_adv +
+        sagarin_away_rating +
+        sagarin_home_rating
+    ),
+    data = dfsagarin,
+    method = "glmnet",
+    metric = "logLoss",
+    trControl = fitControl,
+    tuneGrid = glmnetGrid,
+    intercept = FALSE
+  )
+
+round(coef(sagarin_fit$finalModel, s = 0.01499558)[,1] * 1000, 6) / 1000
+
+dfvegas$pred <- predict(vegas_fit, newdata = dfvegas, type = "prob")[,2]
