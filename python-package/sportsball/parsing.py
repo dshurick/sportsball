@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import numpy
+import pandas
 
 import pandas as pd
+from gspread_pandas import Spread
 from lxml import html
 from selenium import webdriver
 
@@ -36,4 +39,41 @@ class MasseyParser(object):
                 ],
             })
             datatable['week'] = week
+            datatable = datatable.astype(
+                dtype={
+                    'week': int,
+                    'rating': numpy.float,
+                    'off': numpy.float,
+                    'def': numpy.float,
+                    'hfa': numpy.float,
+                })
             return datatable
+
+    def update_spreadsheet(self, week):
+        spread = Spread('dshurick', 'NFL 2018 Expected Wins')
+        spread.open('NFL 2018 Expected Wins')
+
+        df = spread.sheet_to_df(
+            sheet='massey', header_rows=1, index=None).astype(
+                dtype={
+                    'week': int,
+                    'rating': numpy.float,
+                    'off': numpy.float,
+                    'def': numpy.float,
+                    'hfa': numpy.float,
+                })
+
+        df = df.loc[df.week < week]
+
+        tbl = self.parse_nfl(week=week).astype(
+            dtype={
+                'week': int,
+                'rating': numpy.float,
+                'off': numpy.float,
+                'def': numpy.float,
+                'hfa': numpy.float,
+            })
+
+        df = pandas.concat([df, tbl], ignore_index=True, sort=False)
+
+        spread.df_to_sheet(df=df, index=False, replace=True, sheet='massey')
