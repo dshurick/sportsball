@@ -258,7 +258,7 @@ fit_poisson <- function(.dtf) {
   fit <-
     cv.glmnet(
       x = X[, -1],
-      y = dtf$points_scored,
+      y = fitdf$points_scored,
       family = "poisson",
       nfolds = nrow(X),
       alpha = 0
