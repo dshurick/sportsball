@@ -4,7 +4,6 @@ library(Rglpk)
 library(googlesheets)
 library(tidyverse)
 
-
 nfl_2018 <- googlesheets::gs_title("NFL 2018 Expected Wins")
 
 exp_wins <- gs_read(
@@ -16,7 +15,7 @@ exp_wins <- gs_read(
     home_team = col_character()
   )
 ) %>%
-  dplyr::filter(week > 2) %>%
+  dplyr::filter(week > 8) %>%
   dplyr::mutate_at(.vars = vars(ends_with("_prob")), .funs = funs(. / 100)) %>%
   dplyr::mutate(
     away_team = factor(away_team),
@@ -38,12 +37,12 @@ prep_MILP <- function(df, picked_teams = c()) {
   X_week <- Matrix::sparse.model.matrix(~week - 1, data = df)
 
   Nteams <- ncol(X_away_teams)
-  Nweeks <- ncol(week)
+  Nweeks <- ncol(X_week)
 
   # mat must be a numeric vector or a (sparse) matrix of constraint coefficients
   mat <- Matrix::t(cbind(
     rbind(X_away_teams, X_home_teams),
-    rbind(week, week)
+    rbind(X_week, X_week)
   ))
   obj <- log(c(exp_wins$vegas_away_prob, exp_wins$vegas_home_prob))
 
@@ -61,7 +60,19 @@ prep_MILP <- function(df, picked_teams = c()) {
 }
 
 milp_args <-
-  prep_MILP(exp_wins, picked_teams = c("1" = "Detroit", "2" = "New Orleans"))
+  prep_MILP(
+    exp_wins,
+    picked_teams = c(
+      "1" = "Detroit",
+      "2" = "New Orleans",
+      "3" = "Minnesota",
+      "4" = "L.A. Chargers",
+      "5" = "New England",
+      "6" = "Green Bay",
+      "7" = "Indianapolis",
+      "8" = "Pittsburgh"
+    )
+  )
 obj <- log(c(exp_wins$vegas_away_prob, exp_wins$vegas_home_prob))
 
 result <- Rglpk_solve_LP(
