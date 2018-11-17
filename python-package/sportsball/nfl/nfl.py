@@ -71,7 +71,19 @@ class Season(object):
         self.ratings = dict()
         self.league = None
         self.playoff_games = None
-        self.coefs = {'vegas': 0.1057763}
+        self.coefs = {
+            'vegas': 0.1396430439,
+            'scorex': {
+                'home_adv': 0.4105542091,
+                'scorex_home_rating': 0.1291087713,
+            },
+            'massey': {
+                'home_adv': 0.3987280828,
+                'offense': 0.1736309385,
+                'defense': 0.05255939272,
+                'hfa': 0.02819389229,
+            }
+        }
 
         if self.sheettitle:
             self.attach_worksheet()
@@ -83,6 +95,7 @@ class Season(object):
             game.simulate()
         for team in self.teams.values():
             team.setrecord()
+            # team.reset()
         self.sim_playoffs()
 
     def team_values(self):
@@ -251,16 +264,20 @@ class Season(object):
         round1 = set()
         for cnfrnce_str in playoff_seeds.keys():
             for awayseed, homeseed in ((5, 4), (6, 3)):
+                away_team = playoff_seeds[cnfrnce_str][awayseed]
+                home_team = playoff_seeds[cnfrnce_str][homeseed]
                 game = Game(
                     week=18,
                     season=self,
                     neutral=False,
                     playoff=True,
-                    away_team=playoff_seeds[cnfrnce_str][awayseed],
-                    home_team=playoff_seeds[cnfrnce_str][homeseed],
+                    away_team=away_team,
+                    home_team=home_team,
                     away_score=None,
                     home_score=None,
                     game_round=GameRound.WILDCARD)
+                # away_team.playoff_games.add(game)
+                # home_team.playoff_games.add(game)
                 game.simulate()
                 round1.add(game)
 
@@ -283,6 +300,8 @@ class Season(object):
             away_score=None,
             home_score=None,
             game_round=GameRound.DIVISIONAL)
+        # afc_seeds[afc_lowseed].playoff_games.add(game5)
+        # afc_seeds[1].playoff_games.add(game5)
 
         # 6 vs. 3 (home)
         game6 = Game(
@@ -295,6 +314,8 @@ class Season(object):
             away_score=None,
             home_score=None,
             game_round=GameRound.DIVISIONAL)
+        # afc_seeds[afc_hiseed].playoff_games.add(game6)
+        # afc_seeds[2].playoff_games.add(game6)
 
         # nfc
         # 5 vs. 4 (home)
@@ -421,6 +442,7 @@ class Team(object):
         self.ratings = dict()
         self.games = []
         self._record = None
+        self.playoff_games = set()
 
     def __repr__(self):
         return '''{}: {}'''.format(self.team_id, self.name)
@@ -526,6 +548,9 @@ class Team(object):
 
     def setrecord(self):
         self._record = self._calcrecord()
+
+    def reset(self):
+        self.playoff_games = set()
 
     @property
     def wins(self):
@@ -693,6 +718,12 @@ class Game(object):
         elif self.result == -1:
             return self.away_team
 
+    def loser(self):
+        if self.result == -1:
+            return self.home_team
+        elif self.result == 1:
+            return self.away_team
+
     def predict_prob_vegas(self):
         home_adv = self.season.get_home_adv(system='vegas', week=self.week)
         coef = self.season.coefs['vegas']
@@ -702,35 +733,41 @@ class Game(object):
             linear_pred = home_rating - away_rating + home_adv if not self.neutral else 0
             return expit(coef * linear_pred)
 
-    def predict_prob_custom(self):
-        # home_adv = 0.130935044
-        # coef = {'massey': 0.15912980, '538': -0.00479260}
+    def predict_prob_scorex(self):
+        home_adv = self.season.coefs['scorex']['home_adv']
+        coef = self.season.coefs['scorex']['scorex_home_rating']
+        away_rating = self.away_team.get_rating('scorex', self.week)
+        home_rating = self.home_team.get_rating('scorex', self.week)
+        if away_rating is not None and home_rating is not None:
+            # linear_pred = home_rating - away_rating + home_adv if not self.neutral else 0
+            return expit(coef * (home_rating - away_rating) +
+                         home_adv if not self.neutral else 0)
+
+    @staticmethod
+    def predict_prob_base():
+        return 0.625
+
+    def predict_prob_massey(self):
 
         massey_away = self.away_team.get_rating('massey', self.week)
         massey_home = self.home_team.get_rating('massey', self.week)
 
-        # FiveThirtyEight_away = self.away_team.get_rating(
-        #     'FiveThirtyEight', self.week)
-        # FiveThirtyEight_home = self.home_team.get_rating(
-        #     'FiveThirtyEight', self.week)
+        coefs = self.season.coefs['massey']
 
-        away_rating = 0.07103225 * massey_away['off'] + 0.04929093 * massey_home['def']
-        home_rating = 0.07103225 * massey_home['off'] + 0.04929093 * massey_away['def']
+        away_rating = coefs['offense'] * massey_away['off'] + coefs['defense'] * massey_home['def']
+        home_rating = coefs['offense'] * massey_home['off'] + coefs['defense'] * massey_away['def']
 
         if not self.neutral:
-            home_rating += 0.3552361  # massey_home['hfa']
+            home_rating += (coefs['hfa'] * massey_home['hfa'] + coefs['home_adv'])
 
-        massey_linear = home_rating - away_rating
-        # FiveThirtyEight_linear = FiveThirtyEight_home - FiveThirtyEight_away
-
-        return expit(massey_linear)
+        return expit(home_rating - away_rating)
 
     def simulate(self):
         if self.played is False:
-            if self.prob_win:
+            if self.prob_win is not None:
                 self.result = 2 * numpy.random.binomial(
                     1, self.prob_win, size=1)[0] - 1
             else:
-                self.prob_win = self.predict_prob_custom()
+                self.prob_win = self.predict_prob_massey()
                 self.result = 2 * numpy.random.binomial(
                     1, self.prob_win, size=1)[0] - 1

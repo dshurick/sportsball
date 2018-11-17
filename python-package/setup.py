@@ -20,6 +20,7 @@ requirements = [
     'lxml',
     'selenium',
     'gspread-pandas',
+    'sqlalchemy', 'scikit-learn', 'hyperopt'
 ]
 
 setup_requirements = []
