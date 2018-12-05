@@ -74,14 +74,14 @@ class Season(object):
         self.coefs = {
             'vegas': 0.1396430439,
             'scorex': {
-                'home_adv': 0.4105542091,
-                'scorex_home_rating': 0.1291087713,
+                'home_adv': 0.4573411910,
+                'scorex_home_rating': 0.1076896877,
             },
             'massey': {
-                'home_adv': 0.3987280828,
-                'offense': 0.1736309385,
-                'defense': 0.05255939272,
-                'hfa': 0.02819389229,
+                'home_adv': 0.29114211,
+                'offense': 0.12490446,
+                'defense': 0.01749362,
+                'hfa': 0.04709650,
             }
         }
 
