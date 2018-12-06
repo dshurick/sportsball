@@ -1,5 +1,5 @@
 
-source('./utils.R')
+source('./R-package/utils.R')
 
 worksheet18 <- googlesheets::gs_title("NFL 2018 Expected Wins")
 
@@ -120,7 +120,7 @@ vegas_forecast_fit
 min(vegas_forecast_fit$results$logLoss)
 # 0.64601096265327
 
-cffnts <- coef(vegas_forecast_fit$finalModel, s = 0.02832057613)[, 1]
+cffnts <- coef(vegas_forecast_fit$finalModel, s = 0.02920739544)[, 1]
 
 mean(abs(cffnts[c('home_advhome', 'home_advaway')]))
 mean(abs(cffnts[c('away_off', 'home_off')]))

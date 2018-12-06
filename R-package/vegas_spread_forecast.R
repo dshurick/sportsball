@@ -1,6 +1,7 @@
 
-source('./utils.R')
+source('./R-package/utils.R')
 
+wk <- 14
 dtf <- load_data()
 
 fitdf <- dplyr::bind_rows(
@@ -26,9 +27,9 @@ fitdf <- dplyr::bind_rows(
     dplyr::mutate(home_adv = -home_adv)
 ) %>%
   tidyr::drop_na() %>%
-  dplyr::filter(as.numeric(as.character(week)) < 12)
+  dplyr::filter(as.numeric(as.character(week)) < wk)
 
-trainind <- which(fitdf$week != "11")
+trainind <- which(fitdf$week <= as.numeric(as.character(wk - 3)))
 
 X <- Matrix::sparse.model.matrix(
   ~ away_team + home_team + home_adv,
@@ -77,9 +78,10 @@ optfn <- function(paramsvec) {
 
 library(glmnet)
 library(optimr)
+
 argmax <-
   opm(
-    par = c(-0.5, -2.76, 0.4),
+    par = c(-5.882380654, -13.120932400, 1.685463140),
     fn = optfn,
     method = c('ALL'),
     control = list(all.methods = TRUE,
@@ -88,7 +90,7 @@ argmax <-
 
 argmax <-
   optimr(
-    par = c(-0.2358566, -0.4552876, -5.283108),
+    par = c(-5.954649769, -13.49273071, 2.013453772),
     fn = optfn,
     method = 'Nelder-Mead',
     control = list(maxit = 2000)
@@ -129,9 +131,9 @@ vegas_ratings <- googlesheets::gs_read(worksheet18,
 
 vegas_ratings <- dplyr::bind_rows(
   vegas_ratings %>%
-    dplyr::filter(week < 12),
+    dplyr::filter(week != wk),
   dfnew %>%
-    dplyr::mutate(week = 12) %>%
+    dplyr::mutate(week = wk) %>%
     dplyr::select(team = home_team, week, rating = value)
 ) %>%
   dplyr::distinct(week, team, .keep_all = TRUE) %>%

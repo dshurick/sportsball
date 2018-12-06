@@ -1,5 +1,5 @@
 
-source('./utils.R')
+source('./R-package/utils.R')
 
 dtf <- load_data()
 
@@ -8,7 +8,7 @@ poissonfit <- function(dtf) {
   fitdf <- dplyr::bind_rows(
     dtf %>%
       dplyr::filter(season == "2018", !is.na(home_win)) %>%
-      dplyr::select(week, gameid,
+      dplyr::select(week, ots, gameid,
                     away_team,
                     home_team,
                     points = score_home,
@@ -17,6 +17,7 @@ poissonfit <- function(dtf) {
       dplyr::filter(season == "2018", !is.na(home_win)) %>%
       dplyr::select(
         week,
+        ots,
         gameid,
         away_team = home_team,
         home_team = away_team,
@@ -25,7 +26,9 @@ poissonfit <- function(dtf) {
       ) %>%
       dplyr::mutate(home_adv = -home_adv)
   ) %>%
-    mutate(home_adv2 = factor(home_adv == 1, labels = c("No", "Yes")))
+    mutate(home_adv2 = factor(home_adv == 1, labels = c("No", "Yes")),
+           minutes_played = 60 + 5 * ots) %>%
+    dplyr::filter(week < 14)
   
   foldid <-
     caret::groupKFold(fitdf$gameid, k = length(unique(fitdf$gameid)))
@@ -33,24 +36,32 @@ poissonfit <- function(dtf) {
   fitControl <- caret::trainControl(
     method = "cv",
     index = foldid,
-    search = "grid",
-    allowParallel = TRUE
+    search = "grid"
   )
   
-  library(brms)
+  # library(brms)
+  # 
+  # fit <- brms::brm(
+  #   brmsformula(
+  #     points ~ away_team + home_team + home_adv2 + offset(log(minutes_played))
+  #   ),
+  #   family = negbinomial(),
+  #   data = fitdf
+  # )
+  # 
+  # x <- marginal_effects(fit)
   
-  fit <- brm(
-    points ~ away_team + home_team + home_adv2,
-    family = negbinomial(),
-    data = fitdf,
-    cores = 7
-  )
+  # fit <- brms::brm(
+  #   brmsformula(points ~ away_team + home_team + home_adv2),
+  #   family = categorical(),
+  #   data = fitdf,
+  #   sparse = TRUE,
+  #   cores = 6
+  # )
 
-  x <- marginal_effects(fit)
-  
   glmnetGrid <-
-    expand.grid(lambda = exp(seq(-2.22, -0.78, length.out = 11)),
-                alpha = seq(0, 1, length.out = 11))
+    expand.grid(lambda = exp(seq(-0.2, 0.2, length.out = 11)),
+                alpha = seq(0, 0.1, length.out = 11))
   
   X <- Matrix::sparse.model.matrix(
     points ~ away_team + home_team + home_adv,
@@ -66,14 +77,13 @@ poissonfit <- function(dtf) {
       family = "poisson",
       trControl = fitControl,
       tuneGrid = glmnetGrid,
-      standardize = FALSE,
-      intercept = TRUE
+      standardize = FALSE
     )
   
-  poisson_fit
   plot(poisson_fit)
+  poisson_fit
   
-  coef(poisson_fit$finalModel, s = 0.4584060113)[, 1]
+  coef(poisson_fit$finalModel, s = 1)[, 1]
   
   newdf <- fitdf %>%
     dplyr::distinct(home_team, .keep_all = TRUE) %>%
@@ -118,9 +128,10 @@ poisson_ratings <- googlesheets::gs_read(worksheet18,
                                          ws = "poisson")
 
 poisson_ratings <- dplyr::bind_rows(
-  poisson_ratings,
+  poisson_ratings %>%
+    dplyr::filter(week != 14),
   newdf %>%
-    dplyr::mutate(week = 11) %>%
+    dplyr::mutate(week = 14) %>%
     dplyr::select(week, home_team, offense, defense, rating)
 ) %>%
   dplyr::distinct(week, home_team, .keep_all = TRUE) %>%

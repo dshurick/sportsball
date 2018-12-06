@@ -1,4 +1,8 @@
 
+source('./R-package/utils.R')
+
+library(brms)
+
 dtf <- load_data()
 
 # dtf <- dtf %>%
@@ -138,7 +142,8 @@ five38fit <- function(dtf) {
                     home_win = 1 - home_win)
   ) %>%
     tidyr::drop_na() %>%
-    dplyr::filter(home_win == 0 |
+    dplyr::filter(season == '2018',
+                  home_win == 0 |
                     home_win == 1) %>%
     dplyr::mutate(home_win = factor(home_win, labels = c("Away", "Home")))
   
@@ -161,9 +166,9 @@ five38fit <- function(dtf) {
   
   custom_fit <-
     train(
-      home_win ~ season * (home_adv +
-                             five38_away_rating +
-                             five38_home_rating) - season,
+      home_win ~ home_adv +
+        five38_away_rating +
+        five38_home_rating,
       data = fitdf,
       method = "glmnet",
       metric = "logLoss",
@@ -176,7 +181,7 @@ five38fit <- function(dtf) {
   
   min(custom_fit$results$logLoss)
   
-  coef(custom_fit$finalModel, s = 0.02787569826)[, 1]
+  coef(custom_fit$finalModel, s = 0.01074480031)[, 1]
   
   fitdf$pred <-
     predict(custom_fit, newdata = fitdf, type = "prob")[, 2]
@@ -237,7 +242,7 @@ sagarinfit <- function(dtf) {
   )
   
   glmnetGrid <-
-    expand.grid(lambda = exp(seq(-6, -2, length.out = 121)),
+    expand.grid(lambda = exp(seq(-6, -3, length.out = 121)),
                 alpha = 0)
   
   sagarin_fit <-
@@ -253,7 +258,9 @@ sagarinfit <- function(dtf) {
       intercept = FALSE
     )
   
-  coef(sagarin_fit$finalModel, s = 0.03450446073)[, 1]
+  plot(sagarin_fit)
+  
+  coef(sagarin_fit$finalModel, s = 0.01056720438)[, 1]
   
   dfvegas$pred <-
     predict(vegas_fit, newdata = dfvegas, type = "prob")[, 2]
@@ -373,7 +380,7 @@ scorexfit <- function(dtf) {
   )
   
   glmnetGrid <-
-    expand.grid(lambda = exp(seq(-6, -3, length.out = 121)),
+    expand.grid(lambda = exp(seq(-6, -5, length.out = 121)),
                 alpha = 0)
   
   scorex_fit <-
@@ -391,7 +398,7 @@ scorexfit <- function(dtf) {
   
   plot(scorex_fit)
   min(scorex_fit$results$logLoss)
-  coef(scorex_fit$finalModel, s = 0.01290681258)[, 1]
+  coef(scorex_fit$finalModel, s = 0.006737946999)[, 1]
   
   fitdf$pred <-
     predict(massey_fit, newdata = fitdf, type = "prob")[, 2]
@@ -546,7 +553,7 @@ vegasfit <- function(dtf) {
                 alpha = 0)
   
   X <- Matrix::sparse.model.matrix(
-    home_win ~ vegas_spread,
+    home_win ~ vegas_spread + home_adv,
     data = fitdf,
     drop.unused.levels = TRUE
   )
@@ -563,7 +570,7 @@ vegasfit <- function(dtf) {
   
   plot(vegas_fit) 
   min(vegas_fit$results$logLoss)
-  coef(vegas_fit$finalModel, s = 0.01890491508)[, 1]
+  coef(vegas_fit$finalModel, s = 0.01772994963)[, 1]
   
   dfvegas$pred <-
     predict(vegas_fit, newdata = dfvegas, type = "prob")[, 2]
@@ -649,6 +656,117 @@ vegasforecastfit <- function() {
   
 }
 
+
+
+fitdf <- dplyr::bind_rows(
+  dtf %>%
+    dplyr::filter(season == "2018",!is.na(home_win)) %>%
+    dplyr::select(week, ots, gameid,
+                  away_team,
+                  home_team,
+                  home_win,
+                  home_adv),
+  dtf %>%
+    dplyr::filter(season == "2018",!is.na(home_win)) %>%
+    dplyr::select(
+      week,
+      ots,
+      gameid,
+      away_team = home_team,
+      home_team = away_team,
+      home_win,
+      home_adv
+    ) %>%
+    dplyr::mutate(home_adv = -home_adv,
+                  home_win = 1 - home_win)
+) %>%
+  tidyr::drop_na() %>%
+  dplyr::mutate(home_win = factor(home_win, labels = c('Loss', 'Tie', 'Win'))) %>%
+  dplyr::mutate(
+    success = case_when(home_win == 'Loss' ~ 0,
+                        home_win == 'Win' ~ 1,
+                        home_win == 'Tie' ~ 1),
+    trials = case_when(home_win == 'Loss' ~ 1,
+                       home_win == 'Win' ~ 1,
+                       home_win == 'Tie' ~ 2)
+  )
+
+fit1 <- fit
+
+prior <- c(set_prior("horseshoe(1)"))
+
+fit1 <- brms::brm(
+  success | trials(trials) ~ away_team + home_team + home_adv,
+  family = binomial(link = "logit"),
+  data = fitdf,
+  cores = 4,
+  prior = set_prior("horseshoe(1)")
+)
+
+fit2 <- brms::brm(
+  success | trials(trials) ~ away_team + home_team + home_adv,
+  family = binomial(link = "logit"),
+  data = fitdf,
+  cores = 4,
+  prior = set_prior("horseshoe(3)", class = "b")
+)
+
+marginal_effects(fit2)
+
+get_prior(
+  success | trials(trials) ~ away_team + home_team + home_adv,
+  data = fitdf,
+  family = binomial(link = "logit"),
+  prior = set_prior("horseshoe(3)", class = "b")
+)
+
+fit <- brms::brm(
+  brmsformula(success | trials(trials) ~ home_team + away_team + home_adv),
+  family = binomial(link = "logit"),
+  data = fitdf,
+  cores = 4,
+)
+
+ex_df <- fitdf %>%
+  modelr::add_predictions(fit)
+
+ex_df <- fitdf %>%
+  modelr::add_predictions(fit2)
+
+beta_binomial2 <- custom_family(
+  "beta_binomial2",
+  dpars = c("mu", "phi"),
+  links = c("logit", "log"),
+  lb = c(NA, 0),
+  type = "int",
+  vars = "trials[n]"
+)
+
+stan_funs <- "
+  real beta_binomial2_lpmf(int y, real mu, real phi, int N) {
+return beta_binomial_lpmf(y | N, mu * phi, (1 - mu) * phi);
+}
+"
+
+fit <- brm(
+  brmsformula(success |
+                trials(trials) ~ home_team + away_team + home_adv),
+  data = fitdf,
+  family = beta_binomial2,
+  stan_funs = stan_funs,
+  cores = 4
+)
+
+samples1 <- posterior_samples(fit)
+
+summary(fit)
+
+fit <- brms::brm(
+  brmsformula(mu05 ~ home_adv, mu1 ~ home_adv),
+  family = brms::categorical(link = "logit"),
+  data = fitdf,
+  cores = 4
+)
 
 # Massey Fit Coefficients -------------------------------------------------
 

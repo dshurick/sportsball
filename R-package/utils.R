@@ -5,10 +5,11 @@ library(doParallel)
 library(ggplot2)
 library(Matrix)
 
-cl <- makePSOCKcluster(5)
+cl <- makePSOCKcluster(7)
 registerDoParallel(cl)
 
 load_data <- function() {
+  
   worksheet17 <- googlesheets::gs_title("NFL 2017 Expected Wins")
   worksheet18 <- googlesheets::gs_title("NFL 2018 Expected Wins")
   
@@ -46,26 +47,10 @@ load_data <- function() {
   
   # bind 2017 and 2018 together
   dtf <- dplyr::bind_rows(
-    sheet17 %>%
-      dplyr::select(
-        week,
-        away_team,
-        home_team,
-        home_adv,
-        five38_away_rating,
-        five38_home_rating,
-        sagarin_away_rating,
-        sagarin_home_rating,
-        massey_away_rating,
-        massey_home_rating,
-        score_away,
-        score_home,
-        home_win
-      ) %>%
-      dplyr::mutate(season = 2017),
     sheet18 %>%
       dplyr::select(
         week,
+        ots,
         away_team,
         home_team,
         home_adv,

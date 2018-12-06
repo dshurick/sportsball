@@ -15,7 +15,7 @@ exp_wins <- gs_read(
     home_team = col_character()
   )
 ) %>%
-  dplyr::filter(week > 8) %>%
+  dplyr::filter(week > 12) %>%
   dplyr::mutate_at(.vars = vars(ends_with("_prob")), .funs = funs(. / 100)) %>%
   dplyr::mutate(
     away_team = factor(away_team),
@@ -70,10 +70,14 @@ milp_args <-
       "5" = "New England",
       "6" = "Green Bay",
       "7" = "Indianapolis",
-      "8" = "Pittsburgh"
+      "8" = "Pittsburgh",
+      "9" = "Chicago",
+      "10" = "Kansas City",
+      "11" = "Baltimore",
+      "12" = "Houston"
     )
   )
-obj <- log(c(exp_wins$vegas_away_prob, exp_wins$vegas_home_prob))
+obj <- log(c(exp_wins$scorex_away_prob, exp_wins$scorex_home_prob))
 
 result <- Rglpk_solve_LP(
   obj = obj,
@@ -87,7 +91,7 @@ result <- Rglpk_solve_LP(
 awayind <- which(result$solution[1:NROW(exp_wins)] == 1)
 homeind <- which(result$solution[-c(1:NROW(exp_wins))] == 1)
 
-exp_wins[awayind, ] %>% dplyr::select(week, away_team, home_team, vegas_away_prob, vegas_home_prob)
-exp_wins[homeind, ] %>% dplyr::select(week, away_team, home_team, vegas_away_prob, vegas_home_prob)
+exp_wins[awayind, ] %>% dplyr::select(week, away_team, home_team, scorex_away_prob, scorex_home_prob)
+exp_wins[homeind, ] %>% dplyr::select(week, away_team, home_team, scorex_away_prob, scorex_home_prob)
 
 exp(result$optimum)
