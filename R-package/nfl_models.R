@@ -76,20 +76,19 @@ customfit <- function(dtf) {
   )
   
   glmnetGrid <-
-    expand.grid(lambda = exp(seq(-6.4, -4.2, length.out = 11)),
-                alpha = seq(0.28, 0.42, length.out = 11))
+    expand.grid(lambda = exp(seq(-4.7, -3.34, length.out = 11)),
+                alpha = seq(0, 0.3, length.out = 11))
   
   custom_fit <-
     train(
-      home_win ~ season * (
+      home_win ~ 
         home_adv +
           sagarin_away_rating +
           sagarin_home_rating +
           massey_away_rating +
           massey_home_rating +
           five38_away_rating +
-          five38_home_rating
-      ),
+          five38_home_rating,
       data = fitdf,
       method = "glmnet",
       metric = "logLoss",
@@ -98,8 +97,13 @@ customfit <- function(dtf) {
       intercept = FALSE
     )
   
+  custom_fit
+  plot(custom_fit)
+  
+  coef(custom_fit$finalModel, s = 0.01795296494)[, 1]
+  
   min(custom_fit$results$logLoss)
-  formatC(coef(custom_fit$finalModel, s = 0.004991594)[, 1], format = "e", digits = 10)
+  formatC(coef(custom_fit$finalModel, s = 0.01795296494)[, 1], format = "e", digits = 10)
   
   dfvegas$pred <-
     predict(vegas_fit, newdata = dfvegas, type = "prob")[, 2]
@@ -161,7 +165,7 @@ five38fit <- function(dtf) {
   )
   
   glmnetGrid <-
-    expand.grid(lambda = exp(seq(-6, -1.6, length.out = 121)),
+    expand.grid(lambda = exp(seq(-5.56,-3.8, length.out = 31)),
                 alpha = 0)
   
   custom_fit <-
@@ -181,7 +185,7 @@ five38fit <- function(dtf) {
   
   min(custom_fit$results$logLoss)
   
-  coef(custom_fit$finalModel, s = 0.01074480031)[, 1]
+  coef(custom_fit$finalModel, s = 0)[, 1]
   
   fitdf$pred <-
     predict(custom_fit, newdata = fitdf, type = "prob")[, 2]
@@ -260,7 +264,7 @@ sagarinfit <- function(dtf) {
   
   plot(sagarin_fit)
   
-  coef(sagarin_fit$finalModel, s = 0.01056720438)[, 1]
+  coef(sagarin_fit$finalModel, s = 0)[, 1]
   
   dfvegas$pred <-
     predict(vegas_fit, newdata = dfvegas, type = "prob")[, 2]
@@ -380,7 +384,7 @@ scorexfit <- function(dtf) {
   )
   
   glmnetGrid <-
-    expand.grid(lambda = exp(seq(-6, -5, length.out = 121)),
+    expand.grid(lambda = exp(seq(-6, -3, length.out = 121)),
                 alpha = 0)
   
   scorex_fit <-
@@ -398,7 +402,7 @@ scorexfit <- function(dtf) {
   
   plot(scorex_fit)
   min(scorex_fit$results$logLoss)
-  coef(scorex_fit$finalModel, s = 0.006737946999)[, 1]
+  coef(scorex_fit$finalModel, s = 0)[, 1]
   
   fitdf$pred <-
     predict(massey_fit, newdata = fitdf, type = "prob")[, 2]
@@ -568,9 +572,9 @@ vegasfit <- function(dtf) {
       intercept = FALSE
     )
   
+  vegas_fit
   plot(vegas_fit) 
-  min(vegas_fit$results$logLoss)
-  coef(vegas_fit$finalModel, s = 0.01772994963)[, 1]
+  coef(vegas_fit$finalModel, s = 0)[, 1]
   
   dfvegas$pred <-
     predict(vegas_fit, newdata = dfvegas, type = "prob")[, 2]

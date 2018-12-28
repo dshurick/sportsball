@@ -48,15 +48,13 @@ dtf <- dplyr::bind_rows(
       away_team = home_team,
       home_team = away_team,
       home_adv,
-      score_away,
-      score_home,
+      score_away = score_home,
+      score_home = score_away,
       home_win
     ) %>%
     dplyr::mutate(
       gameid = 1:n(),
       home_adv = -home_adv,
-      score_away = score_home,
-      score_home = score_away,
       home_win = 1 - home_win
     ) %>%
     dplyr::left_join(massey_ratings %>%
@@ -96,8 +94,8 @@ fitControl <- trainControl(
 )
 
 glmnetGrid <-
-  expand.grid(lambda = exp(seq(-6, -2.3, length.out = 121)),
-              alpha = 0)
+  expand.grid(lambda = exp(seq(-4.26712, -3.73368, length.out = 11)),
+              alpha = seq(0, 0.16, length.out = 11))
 
 X <-
   Matrix::sparse.model.matrix(~ home_adv + home_adv:(away_hfa + home_hfa) + away_off + away_def + home_off + home_def,
@@ -120,7 +118,7 @@ vegas_forecast_fit
 min(vegas_forecast_fit$results$logLoss)
 # 0.64601096265327
 
-cffnts <- coef(vegas_forecast_fit$finalModel, s = 0.02920739544)[, 1]
+cffnts <- coef(vegas_forecast_fit$finalModel, s = 0.01931147114)[, 1]
 
 mean(abs(cffnts[c('home_advhome', 'home_advaway')]))
 mean(abs(cffnts[c('away_off', 'home_off')]))

@@ -28,10 +28,10 @@ poissonfit <- function(dtf) {
   ) %>%
     mutate(home_adv2 = factor(home_adv == 1, labels = c("No", "Yes")),
            minutes_played = 60 + 5 * ots) %>%
-    dplyr::filter(week < 14)
+    filter(week < 4)
   
   foldid <-
-    caret::groupKFold(fitdf$gameid, k = length(unique(fitdf$gameid)))
+    caret::groupKFold(fitdf$week, k = length(unique(fitdf$week)))
   
   fitControl <- caret::trainControl(
     method = "cv",
@@ -46,22 +46,31 @@ poissonfit <- function(dtf) {
   #     points ~ away_team + home_team + home_adv2 + offset(log(minutes_played))
   #   ),
   #   family = negbinomial(),
-  #   data = fitdf
-  # )
-  # 
-  # x <- marginal_effects(fit)
-  
-  # fit <- brms::brm(
-  #   brmsformula(points ~ away_team + home_team + home_adv2),
-  #   family = categorical(),
   #   data = fitdf,
-  #   sparse = TRUE,
   #   cores = 6
   # )
+  # 
+  # x <-
+  #   marginal_effects(fit, conditions = data.frame(minutes_played = 60))
+  # 
+  # library(plotly)
+  # 
+  # pp <- plot(x, plot = FALSE)[[1]]
+  # 
+  # ggplotly(pp)
+  # 
+  # pp <- plot(x, plot = FALSE)[[2]]
+  # 
+  # ggplotly(pp)
+  # 
+  # pp <- plot(x, plot = FALSE)[[3]]
+  # 
+  # ggplotly(pp)
+  
 
   glmnetGrid <-
-    expand.grid(lambda = exp(seq(-0.2, 0.2, length.out = 11)),
-                alpha = seq(0, 0.1, length.out = 11))
+    expand.grid(lambda = exp(seq(2.6, 3.4, length.out = 41)),
+                alpha = 0)
   
   X <- Matrix::sparse.model.matrix(
     points ~ away_team + home_team + home_adv,
@@ -83,7 +92,7 @@ poissonfit <- function(dtf) {
   plot(poisson_fit)
   poisson_fit
   
-  coef(poisson_fit$finalModel, s = 1)[, 1]
+  coef(poisson_fit$finalModel, s = 21.32755716)[, 1]
   
   newdf <- fitdf %>%
     dplyr::distinct(home_team, .keep_all = TRUE) %>%
@@ -129,9 +138,9 @@ poisson_ratings <- googlesheets::gs_read(worksheet18,
 
 poisson_ratings <- dplyr::bind_rows(
   poisson_ratings %>%
-    dplyr::filter(week != 14),
+    dplyr::filter(week != 5),
   newdf %>%
-    dplyr::mutate(week = 14) %>%
+    dplyr::mutate(week = 5) %>%
     dplyr::select(week, home_team, offense, defense, rating)
 ) %>%
   dplyr::distinct(week, home_team, .keep_all = TRUE) %>%

@@ -5,27 +5,27 @@ dtf <- load_data()
 
 five38challenge <- function() {
   
-  fitdf <- dtf %>%
-    dplyr::filter(!is.na(vegas_spread)) %>%
-    dplyr::select(gameid,
-                  home_adv,
-                  away_team,
-                  home_team,
-                  vegas_spread,
-                  home_win) %>%
-    tidyr::drop_na()
-  
-  fitdf <- dplyr::bind_rows(
-    fitdf %>%
-      dplyr::select(home_adv, vegas_spread, home_win),
-    fitdf %>%
-      dplyr::select(home_adv, vegas_spread, home_win) %>%
-      dplyr::mutate(
-        home_adv = -home_adv,
-        vegas_spread = -vegas_spread,
-        home_win = 1 - home_win
-      )
-  )
+  # fitdf <- dtf %>%
+  #   dplyr::filter(!is.na(vegas_spread)) %>%
+  #   dplyr::select(gameid,
+  #                 home_adv,
+  #                 away_team,
+  #                 home_team,
+  #                 vegas_spread,
+  #                 home_win) %>%
+  #   tidyr::drop_na()
+  # 
+  # fitdf <- dplyr::bind_rows(
+  #   fitdf %>%
+  #     dplyr::select(home_adv, vegas_spread, home_win),
+  #   fitdf %>%
+  #     dplyr::select(home_adv, vegas_spread, home_win) %>%
+  #     dplyr::mutate(
+  #       home_adv = -home_adv,
+  #       vegas_spread = -vegas_spread,
+  #       home_win = 1 - home_win
+  #     )
+  # )
   
   fitdf <- dplyr::bind_rows(
     dtf %>%
@@ -36,6 +36,7 @@ five38challenge <- function() {
         home_team,
         scorex_away_rating,
         scorex_home_rating,
+        vegas_spread,
         home_adv,
         home_win
       ),
@@ -47,11 +48,13 @@ five38challenge <- function() {
         home_team = away_team,
         scorex_away_rating = scorex_home_rating,
         scorex_home_rating = scorex_away_rating,
+        vegas_spread,
         home_adv,
         home_win
       ) %>%
       dplyr::mutate(home_adv = -home_adv,
-                    home_win = 1 - home_win)
+                    home_win = 1 - home_win,
+                    vegas_spread = -vegas_spread)
   ) %>%
     tidyr::drop_na()
   
@@ -60,10 +63,10 @@ five38challenge <- function() {
   }
   
   X <-
-    sparse.model.matrix(~ scorex_away_rating + scorex_home_rating + home_adv - 1,
+    sparse.model.matrix(~ vegas_spread + home_adv - 1,
                         fitdf)
   
-  cffcnts <- c(0, 0, 0)
+  cffcnts <- c(0, 0)
   
   fn <- function(cffcnts) {
     rounded_elo_prob <- logistic((X %*% cffcnts)[, 1])
@@ -75,7 +78,7 @@ five38challenge <- function() {
   
   argmax <-
     optimr::optimr(
-      par = c(0, 0, 0),
+      par = c(0, 0),
       fn = fn,
       method = "BFGS",
       control = list(trace = 1)
@@ -94,6 +97,7 @@ five38challenge <- function() {
         home_team,
         scorex_away_rating,
         scorex_home_rating,
+        vegas_spread,
         home_adv,
         home_win
       ),
@@ -106,16 +110,18 @@ five38challenge <- function() {
         home_team = away_team,
         scorex_away_rating = scorex_home_rating,
         scorex_home_rating = scorex_away_rating,
+        vegas_spread,
         home_adv,
         home_win
       ) %>%
       dplyr::mutate(home_adv = -home_adv,
-                    home_win = 1 - home_win)
+                    home_win = 1 - home_win,
+                    vegas_spread = -vegas_spread)
   ) %>%
-    dplyr::filter(week <= 13)
+    dplyr::filter(week == 17)
   
   X <-
-    sparse.model.matrix(~ scorex_away_rating + scorex_home_rating + home_adv - 1,
+    sparse.model.matrix(~ vegas_spread + home_adv - 1,
                         fitdf)
   
   fitdf$predict_prob <-
@@ -204,10 +210,10 @@ fitdf <- dplyr::bind_rows(
   drop_na()
 
 traindf <- fitdf %>%
-  dplyr::filter(week < 11)
+  dplyr::filter(week < 12)
 
 testdf <- fitdf %>%
-  dplyr::filter(week >= 11)
+  dplyr::filter(week >= 12)
 
 X <-
   Matrix::sparse.model.matrix(
@@ -375,7 +381,7 @@ fn <- function(lmbda) {
 
 argmax <- optimise(fn, interval = c(-2, 10), maximum = TRUE)
 
-fit <- fitbrier(fitdf, lambda = exp(6.178340688))
+fit <- fitbrier(fitdf, lambda = exp(6.207603))
 fitdf$predictions <- predict(fit, fitdf, type = "prob")
 
 # argmax <-
@@ -454,7 +460,7 @@ X <-
 fitdf$predict_prob <- predict.brier(fit, fitdf, type = "prob")
 
 fitdf %>%
-  dplyr::filter(week == 12) %>%
+  dplyr::filter(week == 14) %>%
   dplyr::arrange(gameid) %>%
   dplyr::select(away_team, home_team, predict_prob) %>%
   dplyr::mutate(predict_prob = round(100 * predict_prob)) %>%

@@ -1,7 +1,7 @@
 
 source('./R-package/utils.R')
 
-wk <- 14
+wk <- 17
 dtf <- load_data()
 
 fitdf <- dplyr::bind_rows(
@@ -81,7 +81,7 @@ library(optimr)
 
 argmax <-
   opm(
-    par = c(-5.882380654, -13.120932400, 1.685463140),
+    par = c(39.118981778,  -3.482057366, 2.487703140),
     fn = optfn,
     method = c('ALL'),
     control = list(all.methods = TRUE,
@@ -90,7 +90,7 @@ argmax <-
 
 argmax <-
   optimr(
-    par = c(-5.954649769, -13.49273071, 2.013453772),
+    par = c(40.72489567, -4.087894007, 2.660873856),
     fn = optfn,
     method = 'Nelder-Mead',
     control = list(maxit = 2000)

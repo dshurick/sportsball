@@ -15,7 +15,7 @@ exp_wins <- gs_read(
     home_team = col_character()
   )
 ) %>%
-  dplyr::filter(week > 12) %>%
+  dplyr::filter(week > 14) %>%
   dplyr::mutate_at(.vars = vars(ends_with("_prob")), .funs = funs(. / 100)) %>%
   dplyr::mutate(
     away_team = factor(away_team),
@@ -74,7 +74,9 @@ milp_args <-
       "9" = "Chicago",
       "10" = "Kansas City",
       "11" = "Baltimore",
-      "12" = "Houston"
+      "12" = "Houston",
+      "13" = "Cincinnati",
+      "14" = "Tennessee"
     )
   )
 obj <- log(c(exp_wins$scorex_away_prob, exp_wins$scorex_home_prob))
