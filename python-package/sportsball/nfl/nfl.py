@@ -72,16 +72,19 @@ class Season(object):
         self.league = None
         self.playoff_games = None
         self.coefs = {
-            'vegas': 0.1396430439,
+            'vegas': {
+                'spread': 0.1119884839,
+                'home_adv': 0.2343270422,
+            },
             'scorex': {
-                'home_adv': 0.4573411910,
-                'scorex_home_rating': 0.1076896877,
+                'home_adv': 0.47674424643,
+                'scorex_home_rating': 0.09756994853,
             },
             'massey': {
-                'home_adv': 0.29114211,
-                'offense': 0.12490446,
-                'defense': 0.01749362,
-                'hfa': 0.04709650,
+                'home_adv': 0.39744255,
+                'offense': 0.10195859,
+                'defense': 0.00701740,
+                'hfa': 0.02227187,
             }
         }
 
@@ -154,14 +157,14 @@ class Season(object):
 
         scheduled_games = self.spread.sheet_to_df(
             sheet='Season2018', index=None)[[
-                'week',
-                'away_team',
-                'home_team',
-                'home_adv',
-                'score_away',
-                'score_home',
-                'vegas_spread',
-            ]]
+            'week',
+            'away_team',
+            'home_team',
+            'home_adv',
+            'score_away',
+            'score_home',
+            'vegas_spread',
+        ]]
 
         scheduled_games = infer_df_types(scheduled_games)
 
@@ -224,7 +227,7 @@ class Season(object):
                 for team in sorted(dvsn, reverse=True):
                     print(
                         '    {:15}| {:2} - {:2} - {:2} | {:>4} | {:2} | {:2}'.
-                        format(
+                            format(
                             team.name,
                             team.wins,
                             team.ties,
@@ -503,7 +506,7 @@ class Team(object):
             if game.result is not None:
                 if game.away_team.team_id in (self.team_id, other.team_id
                                               ) and game.home_team.team_id in (
-                                                  self.team_id, other.team_id):
+                    self.team_id, other.team_id):
                     yield game
 
     def _head_to_head_record(self, other):
@@ -604,8 +607,8 @@ class League(object):
 
     def __teams(self):
         for conference in (
-                self.nfc,
-                self.afc,
+            self.nfc,
+            self.afc,
         ):
             for team in conference.teams:
                 yield team
@@ -696,7 +699,7 @@ class Game(object):
         if self.played:
             self.result = 0 if math.isclose(
                 self.home_score, self.away_score) else int(
-                    math.copysign(1, self.home_score - self.away_score))
+                math.copysign(1, self.home_score - self.away_score))
 
     def __repr__(self):
         score = '{:2} - {:2}'.format(self.away_score,
