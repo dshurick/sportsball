@@ -35,6 +35,8 @@ customfit <- function(dtf) {
         massey_home_rating,
         five38_away_rating,
         five38_home_rating,
+        scorex_away_rating,
+        scorex_home_rating,
         home_adv,
         home_win
       ),
@@ -51,6 +53,8 @@ customfit <- function(dtf) {
         massey_home_rating = massey_away_rating,
         five38_away_rating = five38_home_rating,
         five38_home_rating = five38_away_rating,
+        scorex_away_rating = scorex_home_rating,
+        scorex_home_rating = scorex_away_rating,
         home_adv,
         home_win
       ) %>%
@@ -63,7 +67,7 @@ customfit <- function(dtf) {
     dplyr::mutate(home_win = factor(home_win, labels = c("Away", "Home")))
   
   foldid <-
-    groupKFold(fitdf$gameid, k = length(unique(fitdf$gameid)))
+    groupKFold(fitdf$week, k = length(unique(fitdf$week)))
   
   fitControl <- trainControl(
     method = "cv",
@@ -76,19 +80,21 @@ customfit <- function(dtf) {
   )
   
   glmnetGrid <-
-    expand.grid(lambda = exp(seq(-4.7, -3.34, length.out = 11)),
-                alpha = seq(0, 0.3, length.out = 11))
+    expand.grid(lambda = exp(seq(-8, 0, length.out = 41)),
+                alpha = seq(0, 1, length.out = 41))
   
   custom_fit <-
     train(
-      home_win ~ 
+      home_win ~
         home_adv +
-          sagarin_away_rating +
-          sagarin_home_rating +
-          massey_away_rating +
-          massey_home_rating +
-          five38_away_rating +
-          five38_home_rating,
+        sagarin_away_rating +
+        sagarin_home_rating +
+        massey_away_rating +
+        massey_home_rating +
+        five38_away_rating +
+        five38_home_rating +
+        scorex_away_rating +
+        scorex_home_rating,
       data = fitdf,
       method = "glmnet",
       metric = "logLoss",
@@ -100,10 +106,10 @@ customfit <- function(dtf) {
   custom_fit
   plot(custom_fit)
   
-  coef(custom_fit$finalModel, s = 0.01795296494)[, 1]
+  coef(custom_fit$finalModel, s = 0.07427357821)[, 1]
   
   min(custom_fit$results$logLoss)
-  formatC(coef(custom_fit$finalModel, s = 0.01795296494)[, 1], format = "e", digits = 10)
+  formatC(coef(custom_fit$finalModel, s = 0.09071795329)[, 1], format = "e", digits = 10)
   
   dfvegas$pred <-
     predict(vegas_fit, newdata = dfvegas, type = "prob")[, 2]
@@ -152,7 +158,7 @@ five38fit <- function(dtf) {
     dplyr::mutate(home_win = factor(home_win, labels = c("Away", "Home")))
   
   foldid <-
-    groupKFold(fitdf$gameid, k = length(unique(fitdf$gameid)))
+    groupKFold(fitdf$week, k = length(unique(fitdf$week)))
   
   fitControl <- trainControl(
     method = "cv",
@@ -165,7 +171,7 @@ five38fit <- function(dtf) {
   )
   
   glmnetGrid <-
-    expand.grid(lambda = exp(seq(-5.56,-3.8, length.out = 31)),
+    expand.grid(lambda = exp(seq(-5.56,-1, length.out = 31)),
                 alpha = 0)
   
   custom_fit <-
@@ -185,7 +191,7 @@ five38fit <- function(dtf) {
   
   min(custom_fit$results$logLoss)
   
-  coef(custom_fit$finalModel, s = 0)[, 1]
+  coef(custom_fit$finalModel, s = 0.05099641209)[, 1]
   
   fitdf$pred <-
     predict(custom_fit, newdata = fitdf, type = "prob")[, 2]
@@ -233,7 +239,7 @@ sagarinfit <- function(dtf) {
     dplyr::mutate(home_win = factor(home_win, labels = c("Away", "Home")))
   
   foldid <-
-    groupKFold(fitdf$gameid, k = length(unique(fitdf$gameid)))
+    groupKFold(fitdf$week, k = length(unique(fitdf$week)))
   
   fitControl <- trainControl(
     method = "cv",
@@ -264,7 +270,7 @@ sagarinfit <- function(dtf) {
   
   plot(sagarin_fit)
   
-  coef(sagarin_fit$finalModel, s = 0)[, 1]
+  coef(sagarin_fit$finalModel, s = 0.04285212687)[, 1]
   
   dfvegas$pred <-
     predict(vegas_fit, newdata = dfvegas, type = "prob")[, 2]
@@ -418,8 +424,8 @@ vegas_moneyline_fit <- function(dtf) {
         season,
         away_team,
         home_team,
-        vegas_moneyline_odds_away,
-        vegas_moneyline_odds_home,
+        vegas_moneyline_away,
+        vegas_moneyline_home,
         home_adv,
         home_win
       ),
@@ -430,8 +436,8 @@ vegas_moneyline_fit <- function(dtf) {
         season,
         away_team = home_team,
         home_team = away_team,
-        vegas_moneyline_odds_away = vegas_moneyline_odds_home,
-        vegas_moneyline_odds_home = vegas_moneyline_odds_away,
+        vegas_moneyline_away = vegas_moneyline_home,
+        vegas_moneyline_home = vegas_moneyline_away,
         vegas_spread,
         home_adv,
         home_win
@@ -455,7 +461,7 @@ vegas_moneyline_fit <- function(dtf) {
   # fitdf$pred_vegas_spread <- -predict(vegas_forecast_fit, Xnew)
   
   foldid <-
-    groupKFold(fitdf$gameid, k = length(unique(fitdf$gameid)))
+    groupKFold(fitdf$week, k = length(unique(fitdf$week)))
   
   fitControl <- trainControl(
     method = "cv",
@@ -472,7 +478,7 @@ vegas_moneyline_fit <- function(dtf) {
                 alpha = 0)
   
   X <- Matrix::sparse.model.matrix(
-    home_win ~ vegas_moneyline_odds_away + vegas_moneyline_odds_home,
+    home_win ~ vegas_moneyline_away + vegas_moneyline_home,
     data = fitdf,
     drop.unused.levels = TRUE
   )
@@ -490,7 +496,7 @@ vegas_moneyline_fit <- function(dtf) {
   
   plot(vegas_fit) 
   min(vegas_fit$results$logLoss)
-  coef(vegas_fit$finalModel, s = 0.09301448921)[, 1]
+  coef(vegas_fit$finalModel, s = 0.0564161395)[, 1]
   
   dfvegas$pred <-
     predict(vegas_fit, newdata = dfvegas, type = "prob")[, 2]
@@ -617,8 +623,8 @@ vegasforecastfit <- function() {
   )
   
   glmnetGrid <-
-    expand.grid(lambda = exp(seq( -6, -3.9, length.out = 121)),
-                alpha = 0.022)
+    expand.grid(lambda = exp(seq( -6, -2, length.out = 41)),
+                alpha = seq(0, 1, length.out = 41))
   
   X <- Matrix::sparse.model.matrix(
      ~ away_team + home_team + home_adv,
@@ -636,10 +642,10 @@ vegasforecastfit <- function() {
       standardize = FALSE,
       intercept = FALSE
     )
-  
-  min(vegas_forecast_fit$results$RMSE)
-  
-  coef(vegas_forecast_fit$finalModel, s = 0.01116468062)
+ 
+  vegas_forecast_fit 
+  plot(vegas_forecast_fit)
+  coef(vegas_forecast_fit$finalModel, s = 0.01110899654)
   
   dfnew <-
     expand.grid(
@@ -656,7 +662,7 @@ vegasforecastfit <- function() {
   Xnew[, 2] <- 0
   
   dfnew$value <-
-    (Xnew %*% coef(vegas_forecast_fit$finalModel, s = 0.01499558)[-1, ])[, 1]
+    (Xnew %*% coef(vegas_forecast_fit$finalModel, s = 0.01110899654)[-1, ])[, 1]
   
 }
 

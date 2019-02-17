@@ -28,7 +28,7 @@ poissonfit <- function(dtf) {
   ) %>%
     mutate(home_adv2 = factor(home_adv == 1, labels = c("No", "Yes")),
            minutes_played = 60 + 5 * ots) %>%
-    filter(week < 4)
+    filter(week < 19)
   
   foldid <-
     caret::groupKFold(fitdf$week, k = length(unique(fitdf$week)))
@@ -69,7 +69,7 @@ poissonfit <- function(dtf) {
   
 
   glmnetGrid <-
-    expand.grid(lambda = exp(seq(2.6, 3.4, length.out = 41)),
+    expand.grid(lambda = exp(seq(-1.6, 0, length.out = 41)),
                 alpha = 0)
   
   X <- Matrix::sparse.model.matrix(
@@ -92,7 +92,7 @@ poissonfit <- function(dtf) {
   plot(poisson_fit)
   poisson_fit
   
-  coef(poisson_fit$finalModel, s = 21.32755716)[, 1]
+  coef(poisson_fit$finalModel, s = 0.4147829117)[, 1]
   
   newdf <- fitdf %>%
     dplyr::distinct(home_team, .keep_all = TRUE) %>%
@@ -138,9 +138,9 @@ poisson_ratings <- googlesheets::gs_read(worksheet18,
 
 poisson_ratings <- dplyr::bind_rows(
   poisson_ratings %>%
-    dplyr::filter(week != 5),
+    dplyr::filter(week != 19),
   newdf %>%
-    dplyr::mutate(week = 5) %>%
+    dplyr::mutate(week = 19) %>%
     dplyr::select(week, home_team, offense, defense, rating)
 ) %>%
   dplyr::distinct(week, home_team, .keep_all = TRUE) %>%
@@ -152,3 +152,4 @@ worksheet18 <- googlesheets::gs_edit_cells(
   input = poisson_ratings,
   anchor = "A1"
 )
+

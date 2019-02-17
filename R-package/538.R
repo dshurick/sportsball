@@ -118,7 +118,7 @@ five38challenge <- function() {
                     home_win = 1 - home_win,
                     vegas_spread = -vegas_spread)
   ) %>%
-    dplyr::filter(week == 17)
+    dplyr::filter(week == 19)
   
   X <-
     sparse.model.matrix(~ vegas_spread + home_adv - 1,

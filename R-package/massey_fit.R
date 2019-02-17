@@ -81,7 +81,7 @@ dtf <- dplyr::bind_rows(
   )
 
 foldid <-
-  groupKFold(dtf$gameid, k = length(unique(dtf$gameid)))
+  groupKFold(dtf$week, k = length(unique(dtf$week)))
 
 fitControl <- trainControl(
   method = "cv",
@@ -94,8 +94,8 @@ fitControl <- trainControl(
 )
 
 glmnetGrid <-
-  expand.grid(lambda = exp(seq(-4.26712, -3.73368, length.out = 11)),
-              alpha = seq(0, 0.16, length.out = 11))
+  expand.grid(lambda = exp(seq(-8, 0, length.out = 41)),
+              alpha = seq(0, 1, length.out = 41))
 
 X <-
   Matrix::sparse.model.matrix(~ home_adv + home_adv:(away_hfa + home_hfa) + away_off + away_def + home_off + home_def,
@@ -118,7 +118,7 @@ vegas_forecast_fit
 min(vegas_forecast_fit$results$logLoss)
 # 0.64601096265327
 
-cffnts <- coef(vegas_forecast_fit$finalModel, s = 0.01931147114)[, 1]
+cffnts <- coef(vegas_forecast_fit$finalModel, s = 0.02237077186)[, 1]
 
 mean(abs(cffnts[c('home_advhome', 'home_advaway')]))
 mean(abs(cffnts[c('away_off', 'home_off')]))
