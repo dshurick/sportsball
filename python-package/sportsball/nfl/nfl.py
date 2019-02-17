@@ -66,15 +66,42 @@ class Season(object):
         self.year = year
         self.teams = None
         self.games = None
+        self.__unplayed_games = None
         self.spread = None
         self.sheettitle = sheettitle
         self.ratings = dict()
         self.league = None
-        self.playoff_games = None
+        self.playoff_games = {
+            'AFC': {
+                'wildcard': {
+                    (5, 4): None,
+                    (6, 3): None,
+                },
+                'divisional': {
+                    1: None,
+                    2: None,
+                },
+                'conference': None,
+            },
+            'NFC': {
+                'wildcard': {
+                    (5, 4): None,
+                    (6, 3): None,
+                },
+                'divisional': {
+                    1: None,
+                    2: None,
+                },
+                'conference': None,
+            },
+            'superbowl': None,
+        }
+        self.playoff_seeds = None
+        self.teammap = None
         self.coefs = {
             'vegas': {
-                'spread': 0.1119884839,
-                'home_adv': 0.2343270422,
+                'spread': 0.1137375203,
+                'home_adv': 0.140387733
             },
             'scorex': {
                 'home_adv': 0.47674424643,
@@ -94,16 +121,26 @@ class Season(object):
             self.load_games()
 
     def simulate(self):
-        for game in self.games:
+        # for game in self.games:
+        #     game.simulate()
+        for game in self.unplayed_games:
             game.simulate()
         for team in self.teams.values():
             team.setrecord()
             # team.reset()
         self.sim_playoffs()
 
+    @property
+    def unplayed_games(self):
+        if not self.__unplayed_games:
+            self.__unplayed_games = [
+                game for game in self.games if game.played is not True
+            ]
+        return self.__unplayed_games
+
     def team_values(self):
         team_values = {team: 0.0 for team in self.teams.values()}
-        for ii in range(4000):
+        for _ in range(4000):
             self.simulate()
             for game in self.games:
                 away_team = game.away_team
@@ -112,7 +149,7 @@ class Season(object):
                     away_team.mapgmresult(game)]
                 team_values[home_team] += VALUE_MAP[game.game_round.value][
                     home_team.mapgmresult(game)]
-            for game in self.playoff_games:
+            for game in self.__playoff_game_iter():
                 away_team = game.away_team
                 home_team = game.home_team
                 team_values[away_team] += VALUE_MAP[game.game_round.value][
@@ -157,16 +194,17 @@ class Season(object):
 
         scheduled_games = self.spread.sheet_to_df(
             sheet='Season2018', index=None)[[
-            'week',
-            'away_team',
-            'home_team',
-            'home_adv',
-            'score_away',
-            'score_home',
-            'vegas_spread',
-        ]]
+                'week',
+                'away_team',
+                'home_team',
+                'home_adv',
+                'score_away',
+                'score_home',
+                'vegas_spread',
+            ]]
 
         scheduled_games = infer_df_types(scheduled_games)
+        scheduled_games = scheduled_games.loc[scheduled_games.week <= 17]
 
         self.games = [
             Game(
@@ -227,7 +265,7 @@ class Season(object):
                 for team in sorted(dvsn, reverse=True):
                     print(
                         '    {:15}| {:2} - {:2} - {:2} | {:>4} | {:2} | {:2}'.
-                            format(
+                        format(
                             team.name,
                             team.wins,
                             team.ties,
@@ -237,54 +275,89 @@ class Season(object):
                             team.conference_record(),
                         ))
 
+    def __playoff_game_iter(self):
+        if self.playoff_games:
+            for cnfrnce_str in ('AFC', 'NFC'):
+                for rnd in ('wildcard', 'divisional'):
+                    for v in self.playoff_games[cnfrnce_str][rnd].values():
+                        yield v
+                yield self.playoff_games[cnfrnce_str]['conference']
+            yield self.playoff_games['superbowl']
+
+    def playoff_game_list(self):
+        return list(self.__playoff_game_iter())
+
     def sim_playoffs(self):
-        teammap = {}
-        for team in self.teams.values():
-            if team.conference not in teammap:
-                teammap[team.conference] = dict()
-            if team.division not in teammap[team.conference]:
-                teammap[team.conference][team.division] = TeamSet()
-            teammap[team.conference][team.division].add(team)
 
-        playoff_seeds = {}
-        for cnfrnce_str, cnfrnce in teammap.items():
-            division_leaders = TeamSet()
-            wildcard_race = TeamSet()
-            for dvsn_str, dvsn in cnfrnce.items():
-                division_leaders.add(dvsn.popmax())
-                wildcard_race.update(dvsn)
-            cnfrnce_seeds = {}
-            cnfrnce_seeds[1] = division_leaders.popmax()
-            cnfrnce_seeds[2] = division_leaders.popmax()
-            cnfrnce_seeds[3] = division_leaders.popmax()
-            cnfrnce_seeds[4] = division_leaders.popmax()
-            cnfrnce_seeds[5] = wildcard_race.popmax()
-            cnfrnce_seeds[6] = wildcard_race.popmax()
-            playoff_seeds[cnfrnce_str] = cnfrnce_seeds
+        # Resetting any simulated game results leftover from a previous run
+        for cnfrnce_str in ('AFC', 'NFC'):
+            for rnd in ('wildcard', 'divisional'):
+                for k, v in self.playoff_games[cnfrnce_str][rnd].items():
+                    if v and not v.played:
+                        self.playoff_games[cnfrnce_str][rnd][k] = None
+            if (self.playoff_games[cnfrnce_str]['conference'] and
+                    not self.playoff_games[cnfrnce_str]['conference'].played):
+                self.playoff_games[cnfrnce_str]['conference'] = None
+        if (self.playoff_games['superbowl']
+                and not self.playoff_games['superbowl'].played):
+            self.playoff_games['superbowl'] = None
 
-        afc_seeds, nfc_seeds = playoff_seeds.values()
+        if not self.teammap:
+            self.teammap = {}
+            for team in self.teams.values():
+                if team.conference not in self.teammap:
+                    self.teammap[team.conference] = dict()
+                if team.division not in self.teammap[team.conference]:
+                    self.teammap[team.conference][team.division] = TeamSet()
+                self.teammap[team.conference][team.division].add(team)
 
-        round1 = set()
-        for cnfrnce_str in playoff_seeds.keys():
+        if not self.playoff_seeds:
+            self.playoff_seeds = {}
+            for cnfrnce_str, cnfrnce in self.teammap.items():
+                division_leaders = TeamSet()
+                wildcard_race = TeamSet()
+                for _, dvsn in cnfrnce.items():
+                    division_leaders.add(dvsn.popmax())
+                    wildcard_race.update(dvsn)
+                cnfrnce_seeds = {}
+                cnfrnce_seeds[1] = division_leaders.popmax()
+                cnfrnce_seeds[2] = division_leaders.popmax()
+                cnfrnce_seeds[3] = division_leaders.popmax()
+                cnfrnce_seeds[4] = division_leaders.popmax()
+                cnfrnce_seeds[5] = wildcard_race.popmax()
+                cnfrnce_seeds[6] = wildcard_race.popmax()
+                self.playoff_seeds[cnfrnce_str] = cnfrnce_seeds
+
+        afc_seeds, nfc_seeds = self.playoff_seeds.values()
+
+        for cnfrnce_str in self.playoff_seeds.keys():
             for awayseed, homeseed in ((5, 4), (6, 3)):
-                away_team = playoff_seeds[cnfrnce_str][awayseed]
-                home_team = playoff_seeds[cnfrnce_str][homeseed]
-                game = Game(
-                    week=18,
-                    season=self,
-                    neutral=False,
-                    playoff=True,
-                    away_team=away_team,
-                    home_team=home_team,
-                    away_score=None,
-                    home_score=None,
-                    game_round=GameRound.WILDCARD)
-                # away_team.playoff_games.add(game)
-                # home_team.playoff_games.add(game)
-                game.simulate()
-                round1.add(game)
+                self.playoff_games[cnfrnce_str]['wildcard'][(
+                    awayseed, homeseed
+                )] = self.playoff_games[cnfrnce_str]['wildcard'][(
+                    awayseed, homeseed)] or Game(
+                        week=18,
+                        season=self,
+                        neutral=False,
+                        playoff=True,
+                        away_team=self.playoff_seeds[cnfrnce_str][awayseed],
+                        home_team=self.playoff_seeds[cnfrnce_str][homeseed],
+                        away_score=None,
+                        home_score=None,
+                        game_round=GameRound.WILDCARD,
+                    )
+                self.playoff_games[cnfrnce_str]['wildcard'][(
+                    awayseed, homeseed)].simulate()
 
-        round1winners = {game.winner() for game in round1}
+        round1winners = {
+            game.winner()
+            for game in (
+                self.playoff_games['AFC']['wildcard'][(5, 4)],
+                self.playoff_games['AFC']['wildcard'][(6, 3)],
+                self.playoff_games['NFC']['wildcard'][(5, 4)],
+                self.playoff_games['NFC']['wildcard'][(6, 3)],
+            )
+        }
 
         afc_hiseed, afc_lowseed = sorted(
             {k
@@ -293,111 +366,76 @@ class Season(object):
             {k
              for k, v in nfc_seeds.items() if v in round1winners})
 
-        game5 = Game(
-            week=19,
-            season=self,
-            neutral=False,
-            playoff=True,
-            away_team=afc_seeds[afc_lowseed],
-            home_team=afc_seeds[1],
-            away_score=None,
-            home_score=None,
-            game_round=GameRound.DIVISIONAL)
-        # afc_seeds[afc_lowseed].playoff_games.add(game5)
-        # afc_seeds[1].playoff_games.add(game5)
-
-        # 6 vs. 3 (home)
-        game6 = Game(
-            week=19,
-            season=self,
-            neutral=False,
-            playoff=True,
-            away_team=afc_seeds[afc_hiseed],
-            home_team=afc_seeds[2],
-            away_score=None,
-            home_score=None,
-            game_round=GameRound.DIVISIONAL)
-        # afc_seeds[afc_hiseed].playoff_games.add(game6)
-        # afc_seeds[2].playoff_games.add(game6)
-
-        # nfc
-        # 5 vs. 4 (home)
-        game7 = Game(
-            week=19,
-            season=self,
-            neutral=False,
-            playoff=True,
-            away_team=nfc_seeds[nfc_lowseed],
-            home_team=nfc_seeds[1],
-            away_score=None,
-            home_score=None,
-            game_round=GameRound.DIVISIONAL)
-
-        # 6 vs. 3 (home)
-        game8 = Game(
-            week=19,
-            season=self,
-            neutral=False,
-            playoff=True,
-            away_team=nfc_seeds[nfc_hiseed],
-            home_team=nfc_seeds[2],
-            away_score=None,
-            home_score=None,
-            game_round=GameRound.DIVISIONAL)
-
-        round2 = {
-            game5,
-            game6,
-            game7,
-            game8,
+        divisional_seed_slots = {
+            'AFC': {
+                1: afc_lowseed,
+                2: afc_hiseed,
+            },
+            'NFC': {
+                1: nfc_lowseed,
+                2: nfc_hiseed,
+            },
         }
-        for game in round2:
-            game.simulate()
 
-        game9 = Game(
-            week=20,
-            season=self,
-            neutral=True,
-            playoff=True,
-            away_team=game5.winner(),
-            home_team=game6.winner(),
-            away_score=None,
-            home_score=None,
-            game_round=GameRound.CONFERENCE)
+        for cnfrnce_str in self.playoff_seeds.keys():
+            for topseed in (1, 2):
+                self.playoff_games[cnfrnce_str]['divisional'][
+                    topseed] = self.playoff_games[cnfrnce_str]['divisional'][topseed] or Game(
+                        week=19,
+                        season=self,
+                        neutral=False,
+                        playoff=True,
+                        away_team=self.playoff_seeds[cnfrnce_str]
+                        [divisional_seed_slots[cnfrnce_str][topseed]],
+                        home_team=self.playoff_seeds[cnfrnce_str][topseed],
+                        away_score=None,
+                        home_score=None,
+                        game_round=GameRound.DIVISIONAL,
+                    )
+                self.playoff_games[cnfrnce_str]['divisional'][
+                    topseed].simulate()
 
-        game10 = Game(
-            week=20,
-            season=self,
-            neutral=True,
-            playoff=True,
-            away_team=game7.winner(),
-            home_team=game8.winner(),
-            away_score=None,
-            home_score=None,
-            game_round=GameRound.CONFERENCE)
+        self.playoff_games['AFC'][
+            'conference'] = self.playoff_games['AFC']['conference'] or Game(
+                week=20,
+                season=self,
+                neutral=False,
+                playoff=True,
+                away_team=self.playoff_games['AFC']['divisional'][2].winner(),
+                home_team=self.playoff_games['AFC']['divisional'][1].winner(),
+                away_score=None,
+                home_score=None,
+                game_round=GameRound.CONFERENCE,
+            )
+        self.playoff_games['AFC']['conference'].simulate()
 
-        round3 = {
-            game9,
-            game10,
-        }
-        for game in round3:
-            game.simulate()
+        self.playoff_games['NFC'][
+            'conference'] = self.playoff_games['NFC']['conference'] or Game(
+                week=20,
+                season=self,
+                neutral=False,
+                playoff=True,
+                away_team=self.playoff_games['NFC']['divisional'][2].winner(),
+                home_team=self.playoff_games['NFC']['divisional'][1].winner(),
+                away_score=None,
+                home_score=None,
+                game_round=GameRound.CONFERENCE,
+            )
+        self.playoff_games['NFC']['conference'].simulate()
 
-        # Superbowl
-        game11 = Game(
-            week=22,
-            season=self,
-            neutral=True,
-            playoff=True,
-            away_team=game9.winner(),
-            home_team=game10.winner(),
-            away_score=None,
-            home_score=None,
-            game_round=GameRound.SUPERBOWL)
-
-        game11.simulate()
-
-        self.playoff_games = round1 | round2 | round3 | {game11}
+        self.playoff_games[
+            'superbowl'] = self.playoff_games['superbowl'] or Game(
+                week=21,
+                season=self,
+                neutral=True,
+                playoff=True,
+                away_team=self.playoff_games['AFC']['conference'].winner(),
+                home_team=self.playoff_games['NFC']['conference'].winner(),
+                away_score=None,
+                home_score=None,
+                game_round=GameRound.SUPERBOWL,
+            )
+        self.playoff_games['superbowl'].simulate()
 
     def __attach_rating_system(self, system: str):
         if not self.teams:
@@ -506,7 +544,7 @@ class Team(object):
             if game.result is not None:
                 if game.away_team.team_id in (self.team_id, other.team_id
                                               ) and game.home_team.team_id in (
-                    self.team_id, other.team_id):
+                                                  self.team_id, other.team_id):
                     yield game
 
     def _head_to_head_record(self, other):
@@ -607,8 +645,8 @@ class League(object):
 
     def __teams(self):
         for conference in (
-            self.nfc,
-            self.afc,
+                self.nfc,
+                self.afc,
         ):
             for team in conference.teams:
                 yield team
@@ -699,7 +737,7 @@ class Game(object):
         if self.played:
             self.result = 0 if math.isclose(
                 self.home_score, self.away_score) else int(
-                math.copysign(1, self.home_score - self.away_score))
+                    math.copysign(1, self.home_score - self.away_score))
 
     def __repr__(self):
         score = '{:2} - {:2}'.format(self.away_score,
@@ -734,7 +772,8 @@ class Game(object):
         home_rating = self.home_team.get_rating('vegas', self.week)
         if away_rating is not None and home_rating is not None:
             linear_pred = home_rating - away_rating + home_adv if not self.neutral else 0
-            return expit(coef * linear_pred)
+            return expit(coef['spread'] * linear_pred +
+                         coef['home_adv'] if not self.neutral else 0)
 
     def predict_prob_scorex(self):
         home_adv = self.season.coefs['scorex']['home_adv']
@@ -761,7 +800,8 @@ class Game(object):
         home_rating = coefs['offense'] * massey_home['off'] + coefs['defense'] * massey_away['def']
 
         if not self.neutral:
-            home_rating += (coefs['hfa'] * massey_home['hfa'] + coefs['home_adv'])
+            home_rating += (
+                coefs['hfa'] * massey_home['hfa'] + coefs['home_adv'])
 
         return expit(home_rating - away_rating)
 
@@ -771,6 +811,6 @@ class Game(object):
                 self.result = 2 * numpy.random.binomial(
                     1, self.prob_win, size=1)[0] - 1
             else:
-                self.prob_win = self.predict_prob_massey()
+                self.prob_win = self.predict_prob_vegas()
                 self.result = 2 * numpy.random.binomial(
                     1, self.prob_win, size=1)[0] - 1
