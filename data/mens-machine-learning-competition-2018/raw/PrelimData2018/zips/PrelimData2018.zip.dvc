@@ -1,0 +1,7 @@
+cmd: kaggle competitions download --file PrelimData2018.zip mens-machine-learning-competition-2018
+md5: 3a8decd29cf38fc86d5809b08b193596
+outs:
+- cache: true
+  md5: 6a93c7248ed3b4f9def78bb12c76ee63
+  metric: false
+  path: PrelimData2018.zip

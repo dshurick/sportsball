@@ -1,0 +1,14 @@
+cmd: unzip zips/PlayByPlay_2010.zip
+deps:
+- md5: 31b5bc55cc0a27c2fb4c6e07ec2fac29
+  path: zips/PlayByPlay_2010.zip
+md5: a4ac003df831c2f6d6bfd99194daa1a9
+outs:
+- cache: true
+  md5: 3ed63d389d72d5786954e380ca049f8d
+  metric: false
+  path: Events_2010.csv
+- cache: true
+  md5: 8c04623217dd125415ee0ca68fa05711
+  metric: false
+  path: Players_2010.csv

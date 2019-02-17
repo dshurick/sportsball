@@ -1,0 +1,38 @@
+cmd: unzip zips/PrelimData2018.zip
+deps:
+- md5: 6a93c7248ed3b4f9def78bb12c76ee63
+  path: zips/PrelimData2018.zip
+md5: 1e1cc127d79956e610212531707158c4
+outs:
+- cache: true
+  md5: 1e5cd8d9a10fef3180b07b0a86fd9c19
+  metric: false
+  path: Cities_Prelim2018.csv
+- cache: true
+  md5: eeeca0e9c34a920aada916fcd82e9fe5
+  metric: false
+  path: Events_Prelim2018.csv
+- cache: true
+  md5: 2e8b999e6d21eccaf17004a96565e699
+  metric: false
+  path: GameCities_Prelim2018.csv
+- cache: true
+  md5: dd51d5f0eff5c0bd2561eaff8e928b2b
+  metric: false
+  path: MasseyOrdinals_Prelim2018.csv
+- cache: true
+  md5: ec331d7dc78ab8343a9468ccfe5702e4
+  metric: false
+  path: Players_Prelim2018.csv
+- cache: true
+  md5: 74ebabaa639dcafb37f348b2e783721d
+  metric: false
+  path: RegularSeasonCompactResults_Prelim2018.csv
+- cache: true
+  md5: 9b0eaae2250540d765e82929fd960742
+  metric: false
+  path: RegularSeasonDetailedResults_Prelim2018.csv
+- cache: true
+  md5: 80972a2ea17d54bae73ac588a90acc62
+  metric: false
+  path: TeamCoaches_Prelim2018.csv

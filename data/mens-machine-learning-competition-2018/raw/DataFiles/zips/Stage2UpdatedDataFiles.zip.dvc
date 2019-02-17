@@ -1,0 +1,7 @@
+cmd: kaggle competitions download --file Stage2UpdatedDataFiles.zip mens-machine-learning-competition-2018
+md5: 391ba8f4310133be30612a805086ae03
+outs:
+- cache: true
+  md5: 9c6e4f7184ce15a153fdefffcb4c3601
+  metric: false
+  path: Stage2UpdatedDataFiles.zip

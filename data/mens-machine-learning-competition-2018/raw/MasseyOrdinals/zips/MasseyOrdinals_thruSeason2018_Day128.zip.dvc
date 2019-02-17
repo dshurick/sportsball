@@ -1,0 +1,8 @@
+cmd: kaggle competitions download --file MasseyOrdinals_thruSeason2018_Day128.zip
+  mens-machine-learning-competition-2018
+md5: cbd90bb580a97490030ebbe2fe5b6475
+outs:
+- cache: true
+  md5: 0960366326fed47c19ee388fed30a2da
+  metric: false
+  path: MasseyOrdinals_thruSeason2018_Day128.zip
