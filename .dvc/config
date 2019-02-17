@@ -1,0 +1,5 @@
+['remote "aws"']
+url = s3://dshurick-sportsball
+profile = personal
+[core]
+remote = aws
