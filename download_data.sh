@@ -1,38 +1,40 @@
 #!/bin/bash
 
+mkdir data/mens-machine-learning-competition-2019/raw/PlayByPlay/zips
+
 for i in `seq 2010 2018`;
 do
     dvc run -o PlayByPlay_${i}.zip \
-        -c data/mens-machine-learning-competition-2018/raw/PlayByPlay/zips \
+        -w data/mens-machine-learning-competition-2019/raw/PlayByPlay/zips \
         kaggle competitions download \
-        --file PlayByPlay_${i}.zip mens-machine-learning-competition-2018
+        --file PlayByPlay_${i}.zip mens-machine-learning-competition-2019
 done
 
-mkdir data/mens-machine-learning-competition-2018/raw/DataFiles/zips
+mkdir data/mens-machine-learning-competition-2019/raw/DataFiles/zips
 
 dvc run -o DataFiles.zip \
-    -c data/mens-machine-learning-competition-2018/raw/DataFiles/zips \
+    -w data/mens-machine-learning-competition-2019/raw/DataFiles/zips \
     kaggle competitions download \
-    --file DataFiles.zip mens-machine-learning-competition-2018
+    --file DataFiles.zip mens-machine-learning-competition-2019
 
-mkdir data/mens-machine-learning-competition-2018/raw/PrelimData2018/zips
+mkdir data/mens-machine-learning-competition-2019/raw/PrelimData2019/zips
 
-dvc run -o PrelimData2018.zip \
-    -c data/mens-machine-learning-competition-2018/raw/PrelimData2018/zips \
+dvc run -o PrelimData2019.zip \
+    -w data/mens-machine-learning-competition-2019/raw/PrelimData2019/zips \
     kaggle competitions download \
-    --file PrelimData2018.zip mens-machine-learning-competition-2018
+    --file PrelimData2019.zip mens-machine-learning-competition-2019
 
-mkdir data/mens-machine-learning-competition-2018/raw/MasseyOrdinals/zips
+mkdir data/mens-machine-learning-competition-2019/raw/MasseyOrdinals/zips
 
-dvc run -o MasseyOrdinals_thruSeason2018_Day128.zip \
-    -c data/mens-machine-learning-competition-2018/raw/MasseyOrdinals/zips \
+dvc run -o MasseyOrdinals.zip \
+    -w data/mens-machine-learning-competition-2019/raw/MasseyOrdinals/zips \
     kaggle competitions download \
-    --file MasseyOrdinals_thruSeason2018_Day128.zip mens-machine-learning-competition-2018
+    --file MasseyOrdinals.zip mens-machine-learning-competition-2019
 
-dvc run -o Stage2UpdatedDataFiles.zip \
-    -c data/mens-machine-learning-competition-2018/raw/DataFiles/zips \
-    kaggle competitions download \
-    --file Stage2UpdatedDataFiles.zip mens-machine-learning-competition-2018
+#dvc run -o Stage2UpdatedDataFiles.zip \
+#    -w data/mens-machine-learning-competition-2019/raw/DataFiles/zips \
+#    kaggle competitions download \
+#    --file Stage2UpdatedDataFiles.zip mens-machine-learning-competition-2019
 
 dvc run -d zips/DataFiles.zip \
     -o Cities.csv \
@@ -54,36 +56,36 @@ dvc run -d zips/DataFiles.zip \
     -o TeamSpellings.csv \
     -o Teams.csv \
     -f DataFiles.dvc \
-    -c data/mens-machine-learning-competition-2018/raw/DataFiles \
+    -w data/mens-machine-learning-competition-2019/raw/DataFiles \
     unzip zips/DataFiles.zip
 
 
-dvc run -d zips/MasseyOrdinals_thruSeason2018_Day128.zip \
-    -o MasseyOrdinals_thruSeason2018_Day128.csv \
+dvc run -d zips/MasseyOrdinals.zip \
+    -o MasseyOrdinals.csv \
     -f MasseyOrdinals.dvc \
-    -c data/mens-machine-learning-competition-2018/raw/MasseyOrdinals \
-    unzip zips/MasseyOrdinals_thruSeason2018_Day128.zip
+    -w data/mens-machine-learning-competition-2019/raw/MasseyOrdinals \
+    unzip zips/MasseyOrdinals.zip
 
 
-dvc run -d zips/PrelimData2018.zip \
-    -o Cities_Prelim2018.csv \
-    -o Events_Prelim2018.csv \
-    -o GameCities_Prelim2018.csv \
-    -o MasseyOrdinals_Prelim2018.csv \
-    -o Players_Prelim2018.csv \
-    -o RegularSeasonCompactResults_Prelim2018.csv \
-    -o RegularSeasonDetailedResults_Prelim2018.csv \
-    -o TeamCoaches_Prelim2018.csv \
-    -f PrelimData2018.dvc \
-    -c data/mens-machine-learning-competition-2018/raw/PrelimData2018 \
-    unzip zips/PrelimData2018.zip
+#dvc run -d zips/PrelimData2019.zip \
+#    -o Cities_Prelim2019.csv \
+#    -o Events_Prelim2019.csv \
+#    -o GameCities_Prelim2019.csv \
+#    -o MasseyOrdinals_Prelim2019.csv \
+#    -o Players_Prelim2019.csv \
+#    -o RegularSeasonCompactResults_Prelim2019.csv \
+#    -o RegularSeasonDetailedResults_Prelim2019.csv \
+#    -o TeamCoaches_Prelim2019.csv \
+#    -f PrelimData2019.dvc \
+#    -w data/mens-machine-learning-competition-2019/raw/PrelimData2019 \
+#    unzip zips/PrelimData2019.zip
 
 
 dvc run -d zips/PlayByPlay_2010.zip \
     -o Events_2010.csv \
     -o Players_2010.csv \
     -f PlayByPlay_2010.dvc \
-    -c data/mens-machine-learning-competition-2018/raw/PlayByPlay \
+    -w data/mens-machine-learning-competition-2019/raw/PlayByPlay \
     unzip zips/PlayByPlay_2010.zip
 
 
@@ -93,6 +95,6 @@ do
         -o Events_${i}.csv \
         -o Players_${i}.csv \
         -f PlayByPlay_${i}.dvc \
-        -c data/mens-machine-learning-competition-2018/raw/PlayByPlay \
+        -w data/mens-machine-learning-competition-2019/raw/PlayByPlay \
         unzip zips/PlayByPlay_${i}.zip
 done
