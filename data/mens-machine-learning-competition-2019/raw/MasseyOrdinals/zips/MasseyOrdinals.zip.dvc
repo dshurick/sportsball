@@ -1,0 +1,8 @@
+cmd: kaggle competitions download --file MasseyOrdinals.zip mens-machine-learning-competition-2019
+md5: e819ca3d3c63c8b1101969947a281f4c
+outs:
+- cache: true
+  md5: e9fd88e5fb807f62de8184a275da2d9f
+  metric: false
+  path: MasseyOrdinals.zip
+wdir: .

@@ -1,0 +1,7 @@
+md5: d94c4199acd9bbe8d2a630deb4f3eec0
+outs:
+- cache: true
+  md5: 26c1ab9bbc2e0a88222b6297c13132cb
+  metric: false
+  path: efficiency/offense/offense18.csv
+wdir: ../..

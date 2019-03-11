@@ -1,0 +1,8 @@
+cmd: kaggle competitions download --file PlayByPlay_2012.zip mens-machine-learning-competition-2019
+md5: 3bc83c9fa7cb9e74f6406d7c77c2857e
+outs:
+- cache: true
+  md5: 146015e1c571a0354cc3c70eab099046
+  metric: false
+  path: PlayByPlay_2012.zip
+wdir: .

@@ -1,0 +1,15 @@
+cmd: unzip zips/PlayByPlay_2015.zip
+deps:
+- md5: 1a187c0b597b95c8072d50a738288026
+  path: zips/PlayByPlay_2015.zip
+md5: a918656ab8f5272f346c0cf52302a323
+outs:
+- cache: true
+  md5: a5ae3b174ebccc79b83a078380eacc06
+  metric: false
+  path: Events_2015.csv
+- cache: true
+  md5: bf66ca6c6d0d529eea070f113fd6eeff
+  metric: false
+  path: Players_2015.csv
+wdir: .

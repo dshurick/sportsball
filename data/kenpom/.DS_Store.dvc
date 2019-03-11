@@ -1,0 +1,7 @@
+md5: bd52c3886b5de32494a9b9461304cc22
+outs:
+- cache: true
+  md5: 53262da04e6c056a5b123318e7dbf6d3
+  metric: false
+  path: .DS_Store
+wdir: .

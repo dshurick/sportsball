@@ -1,0 +1,7 @@
+md5: 87999188cb5f7bec058574469af72f4c
+outs:
+- cache: true
+  md5: 27a74d3864b9ca28c46c13cf231abee7
+  metric: false
+  path: efficiency/summary03_pt.csv
+wdir: ..

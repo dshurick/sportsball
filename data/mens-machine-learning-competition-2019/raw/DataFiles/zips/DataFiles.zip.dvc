@@ -1,0 +1,8 @@
+cmd: kaggle competitions download --file DataFiles.zip mens-machine-learning-competition-2019
+md5: f1618971854d6056374a93e2106780c8
+outs:
+- cache: true
+  md5: b92074db76d7ecb9534c6ee1ad220c91
+  metric: false
+  path: DataFiles.zip
+wdir: .

@@ -1,0 +1,7 @@
+md5: b18102853d346d35199980f5faaacde9
+outs:
+- cache: true
+  md5: 0c2f8bbca1848128806cc1746331b03a
+  metric: false
+  path: misc/misc16.csv
+wdir: ..
