@@ -1,0 +1,23 @@
+cmd: Rscript ./src/models/mens-machine-learning-competition-2019/modelling.R --year=2017
+  --detailed=./data/processed/mens-machine-learning-competition-2019/Stage2/games_detailed.csv
+  --metrics=./data/processed/mens-machine-learning-competition-2019/Stage2/team_metrics/recency/team_metrics_2017.csv
+  --subm=./data/raw/mens-machine-learning-competition-2019/Stage2DataFiles/SampleSubmissionStage1.csv
+  --tourney_similarity=./data/processed/mens-machine-learning-competition-2019/Stage2/tourney_like_games/recency/tourney_like_games_2017.csv
+  --outfile=./data/processed/mens-machine-learning-competition-2019/Stage2/submissions/model04/submission_2017.csv
+  --interactions --tourneyprob=0.0327
+deps:
+- md5: b2278216dee7414efc0f0d28b908dabe
+  path: data/processed/mens-machine-learning-competition-2019/Stage2/games_detailed.csv
+- md5: 753fef2721da4eb0585ea009eed00295
+  path: data/processed/mens-machine-learning-competition-2019/Stage2/team_metrics/recency/team_metrics_2017.csv
+- md5: e393747fe995c3322ca49a5602dd419c
+  path: data/raw/mens-machine-learning-competition-2019/Stage2DataFiles/SampleSubmissionStage1.csv
+- md5: 0c88b2b308d4edc9aa37bb0cbdbda8c4
+  path: data/processed/mens-machine-learning-competition-2019/Stage2/tourney_like_games/recency/tourney_like_games_2017.csv
+md5: 50ab1404aeb9481355a9d0806999ed66
+outs:
+- cache: true
+  md5: 6eba75c5cc284016b2be0f5aebb9bdb5
+  metric: false
+  path: data/processed/mens-machine-learning-competition-2019/Stage2/submissions/model04/submission_2017.csv
+wdir: ../../../../../..

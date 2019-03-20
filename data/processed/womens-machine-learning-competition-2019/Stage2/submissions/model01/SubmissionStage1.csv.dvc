@@ -15,14 +15,15 @@ deps:
   path: data/processed/womens-machine-learning-competition-2019/Stage2/submissions/model01/submission_2017.csv
 - md5: dbc3d350349b8dc0ca89d3950ce438cf
   path: data/processed/womens-machine-learning-competition-2019/Stage2/submissions/model01/submission_2018.csv
-md5: c0f2d8f4e39bf636498df93af4d09cf0
+md5: 507f900abc44d0791377a2c2a8150261
 outs:
 - cache: true
   md5: 36cd1660502a679af97db6247c86e251
   metric: false
   path: data/processed/womens-machine-learning-competition-2019/Stage2/submissions/model01/SubmissionStage1.csv
 - cache: true
-  md5: 733e8b41bb932c5a73e6aaff06307c4f
-  metric: true
+  md5: e809a927cfc03561e456b82abba0756c
+  metric:
+    type: json
   path: data/processed/womens-machine-learning-competition-2019/Stage2/submissions/model01/eval.json
 wdir: ../../../../../..

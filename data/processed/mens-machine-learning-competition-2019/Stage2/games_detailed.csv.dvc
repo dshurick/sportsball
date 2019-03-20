@@ -1,0 +1,19 @@
+cmd: Rscript ./src/features/mens-machine-learning-competition-2019/make_detailed.R
+  --regssn=./data/raw/mens-machine-learning-competition-2019/Stage2DataFiles/RegularSeasonDetailedResults.csv
+  --ncaatourney=./data/raw/mens-machine-learning-competition-2019/Stage2DataFiles/NCAATourneyDetailedResults.csv
+  --conftourney=./data/raw/mens-machine-learning-competition-2019/Stage2DataFiles/ConferenceTourneyGames.csv
+  --outfile=./data/processed/mens-machine-learning-competition-2019/Stage2/games_detailed.csv
+deps:
+- md5: b630e521939482b15fde4f44798923e8
+  path: data/raw/mens-machine-learning-competition-2019/Stage2DataFiles/RegularSeasonDetailedResults.csv
+- md5: 81db63e60b50dfa58b15bf43d1dc66bf
+  path: data/raw/mens-machine-learning-competition-2019/Stage2DataFiles/NCAATourneyDetailedResults.csv
+- md5: bc4e19dc4cb7c5c196f55005b62e270d
+  path: data/raw/mens-machine-learning-competition-2019/Stage2DataFiles/ConferenceTourneyGames.csv
+md5: 25a6942e1a19acf4c8b1f8c8f1e8fe44
+outs:
+- cache: true
+  md5: b2278216dee7414efc0f0d28b908dabe
+  metric: false
+  path: data/processed/mens-machine-learning-competition-2019/Stage2/games_detailed.csv
+wdir: ../../../..

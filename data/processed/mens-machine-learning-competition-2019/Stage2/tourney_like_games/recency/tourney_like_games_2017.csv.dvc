@@ -1,0 +1,16 @@
+cmd: Rscript ./src/features/mens-machine-learning-competition-2019/predict_similar_tourney_games.R
+  --year=2017 --detailed=./data/processed/mens-machine-learning-competition-2019/Stage2/games_detailed.csv
+  --metrics=./data/processed/mens-machine-learning-competition-2019/Stage2/team_metrics/recency/team_metrics_2017.csv
+  --outfile=./data/processed/mens-machine-learning-competition-2019/Stage2/tourney_like_games/recency/tourney_like_games_2017.csv
+deps:
+- md5: b2278216dee7414efc0f0d28b908dabe
+  path: data/processed/mens-machine-learning-competition-2019/Stage2/games_detailed.csv
+- md5: 753fef2721da4eb0585ea009eed00295
+  path: data/processed/mens-machine-learning-competition-2019/Stage2/team_metrics/recency/team_metrics_2017.csv
+md5: ed6399b1cef81b115f4114dabcb4fb91
+outs:
+- cache: true
+  md5: 0c88b2b308d4edc9aa37bb0cbdbda8c4
+  metric: false
+  path: data/processed/mens-machine-learning-competition-2019/Stage2/tourney_like_games/recency/tourney_like_games_2017.csv
+wdir: ../../../../../..

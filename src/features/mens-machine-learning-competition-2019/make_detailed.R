@@ -1,3 +1,4 @@
+#!/usr/local/bin/ Rscript
 
 suppressWarnings({
   suppressMessages({

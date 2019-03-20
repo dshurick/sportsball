@@ -1,0 +1,29 @@
+cmd: Rscript ./src/models/womens-machine-learning-competition-2019/evaluate.R --submissionpath=./data/processed/womens-machine-learning-competition-2019/Stage2/submissions/model03
+  --outfile=./data/processed/womens-machine-learning-competition-2019/Stage2/submissions/model03/SubmissionStage1.csv
+  --ncaatourney=./data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WNCAATourneyDetailedResults.csv
+  --metricsfile=./data/processed/womens-machine-learning-competition-2019/Stage2/submissions/model03/eval.json
+deps:
+- md5: bc28ec533b05e48ad2f8eb65bc6ad072
+  path: data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WNCAATourneyDetailedResults.csv
+- md5: 29a1af203d71a004c9c7948b339a16ce
+  path: data/processed/womens-machine-learning-competition-2019/Stage2/submissions/model03/submission_2014.csv
+- md5: d86a3fd5ca993be0ba5d1af2a2afd1c7
+  path: data/processed/womens-machine-learning-competition-2019/Stage2/submissions/model03/submission_2015.csv
+- md5: 8833483a88603b3f0c0eb952afa64333
+  path: data/processed/womens-machine-learning-competition-2019/Stage2/submissions/model03/submission_2016.csv
+- md5: 8081cdadd20994f4af53283be8aae2c8
+  path: data/processed/womens-machine-learning-competition-2019/Stage2/submissions/model03/submission_2017.csv
+- md5: f5f902fed805b73681d30b71e0768f8e
+  path: data/processed/womens-machine-learning-competition-2019/Stage2/submissions/model03/submission_2018.csv
+md5: b1d256c6909f10a4a8faa47967974506
+outs:
+- cache: true
+  md5: 1abfc3f0a296b90902d4c3f3125b233b
+  metric: false
+  path: data/processed/womens-machine-learning-competition-2019/Stage2/submissions/model03/SubmissionStage1.csv
+- cache: true
+  md5: 3ab9f57ddae6dd8ae664314771864a43
+  metric:
+    type: json
+  path: data/processed/womens-machine-learning-competition-2019/Stage2/submissions/model03/eval.json
+wdir: ../../../../../..

@@ -43,13 +43,6 @@ parse_args <- function() {
   opt_parser = optparse::OptionParser(option_list = option_list)
   opt = optparse::parse_args(opt_parser)
   
-  coll <- checkmate::makeAssertCollection()
-  checkmate::assert_directory_exists(opt$submissionpath, access = 'w', add = coll)
-  checkmate::assert_file_exists(opt$ncaatourney, access = 'r', add = coll)
-  checkmate::assert_path_for_output(opt$outfile, overwrite = TRUE, add = coll)
-  checkmate::assert_path_for_output(opt$metricsfile, overwrite = TRUE, add = coll)
-  checkmate::reportAssertions(coll)
-  
   return(opt)
 }
 
@@ -58,13 +51,20 @@ main <- function() {
   
   opt <- parse_args()
   
-  opt <-
-    list(
-      submissionpath = 'data/mens-machine-learning-competition-2019/processed/Stage2/submissions/model03',
-      outfile = 'data/mens-machine-learning-competition-2019/processed/Stage2/submissions/model03/SubmissionStage2.csv',
-      ncaatourney = "data/mens-machine-learning-competition-2019/raw/Stage2DataFiles/NCAATourneyDetailedResults.csv",
-      metricsfile = 'data/mens-machine-learning-competition-2019/processed/Stage2/submissions/model01/eval.json'
-    )
+  # opt <-
+  #   list(
+  #     submissionpath = 'data/mens-machine-learning-competition-2019/processed/Stage2/submissions/model03',
+  #     outfile = 'data/mens-machine-learning-competition-2019/processed/Stage2/submissions/model03/SubmissionStage2.csv',
+  #     ncaatourney = "data/mens-machine-learning-competition-2019/raw/Stage2DataFiles/NCAATourneyDetailedResults.csv",
+  #     metricsfile = 'data/mens-machine-learning-competition-2019/processed/Stage2/submissions/model01/eval.json'
+  #   )
+
+    coll <- checkmate::makeAssertCollection()
+    checkmate::assert_directory_exists(opt$submissionpath, access = 'w', add = coll)
+    checkmate::assert_file_exists(opt$ncaatourney, access = 'r', add = coll)
+    checkmate::assert_path_for_output(opt$outfile, overwrite = TRUE, add = coll)
+    checkmate::assert_path_for_output(opt$metricsfile, overwrite = TRUE, add = coll)
+    checkmate::reportAssertions(coll)
   
   submission_files <-
     list.files(
@@ -123,7 +123,7 @@ main <- function() {
                     AUC = MLmetrics::AUC(Pred, Result)
                   ))
   
-  jsonlite::write_json(metrics, opt$metricsfile)
+  jsonlite::write_json(metrics, opt$metricsfile, digits = 8)
   
 }
 

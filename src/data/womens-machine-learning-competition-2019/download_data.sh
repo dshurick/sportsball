@@ -3,9 +3,9 @@
 # Set up empty directory structure
 BASERAWDATA=$(dvc root)/data/raw/womens-machine-learning-competition-2019
 
-mkdir ${BASERAWDATA}/zips
-mkdir ${BASERAWDATA}/Stage2WDataFiles
-mkdir ${BASERAWDATA}/WDataFiles
+mkdir -p ${BASERAWDATA}/zips
+mkdir -p ${BASERAWDATA}/Stage2WDataFiles
+mkdir -p ${BASERAWDATA}/WDataFiles
 
 dvc run -o WDataFiles.zip \
     -w ${BASERAWDATA}/zips \
@@ -54,4 +54,3 @@ dvc run -o ${BASERAWDATA}/Stage2WDataFiles/WCities.csv \
     -o ${BASERAWDATA}/Stage2WDataFiles/WTeamSpellings.csv \
     -f ${BASERAWDATA}/Stage2WDataFiles/WDataFiles.dvc \
     unzip -o ${BASERAWDATA}/zips/Stage2WDataFiles.zip -d ${BASERAWDATA}/Stage2WDataFiles
-

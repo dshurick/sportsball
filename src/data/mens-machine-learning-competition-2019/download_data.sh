@@ -3,11 +3,11 @@
 # Set up empty directory structure
 BASERAWDATA=$(dvc root)/data/raw/mens-machine-learning-competition-2019
 
-mkdir ${BASERAWDATA}/zips
-mkdir ${BASERAWDATA}/Stage2DataFiles
-mkdir ${BASERAWDATA}/DataFiles
-mkdir ${BASERAWDATA}/MasseyOrdinals
-mkdir ${BASERAWDATA}/PlayByPlay
+mkdir -p ${BASERAWDATA}/zips
+mkdir -p ${BASERAWDATA}/Stage2DataFiles
+mkdir -p ${BASERAWDATA}/DataFiles
+mkdir -p ${BASERAWDATA}/MasseyOrdinals
+mkdir -p ${BASERAWDATA}/PlayByPlay
 
 for i in $(seq 2015 2019); do
         dvc run -o PlayByPlay_${i}.zip \
@@ -35,6 +35,11 @@ dvc run -o SampleSubmissionStage2.csv \
         -w ${BASERAWDATA}/Stage2DataFiles \
         -f ${BASERAWDATA}/Stage2DataFiles/SampleSubmissionStage2.csv.dvc \
         "kaggle competitions download --file SampleSubmissionStage2.csv mens-machine-learning-competition-2019"
+
+dvc run -o SampleSubmissionStage1.csv \
+        -w ${BASERAWDATA}/Stage2DataFiles \
+        -f ${BASERAWDATA}/Stage2DataFiles/SampleSubmissionStage1.csv.dvc \
+        "kaggle competitions download --file SampleSubmissionStage1.csv mens-machine-learning-competition-2019"
 
 dvc run -d ${BASERAWDATA}/zips/DataFiles.zip \
         -o ${BASERAWDATA}/DataFiles/Cities.csv \

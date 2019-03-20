@@ -1,48 +1,50 @@
+#!/bin/bash
 
-dvc run -d data/mens-machine-learning-competition-2019/raw/DataFiles/RegularSeasonDetailedResults.csv \
-    -d data/mens-machine-learning-competition-2019/raw/DataFiles/NCAATourneyDetailedResults.csv \
-    -d data/mens-machine-learning-competition-2019/raw/DataFiles/ConferenceTourneyGames.csv \
-    -o data/mens-machine-learning-competition-2019/processed/games_detailed.csv \
-    Rscript make_detailed.R
+DVCROOT=$(dvc root)
 
-dvc run -d data/mens-machine-learning-competition-2019/processed/games_detailed.csv \
-    -o data/mens-machine-learning-competition-2019/processed/team_metrics/team_metrics_2014.csv \
-    -o data/mens-machine-learning-competition-2019/processed/team_metrics/team_metrics_2015.csv \
-    -o data/mens-machine-learning-competition-2019/processed/team_metrics/team_metrics_2016.csv \
-    -o data/mens-machine-learning-competition-2019/processed/team_metrics/team_metrics_2017.csv \
-    -o data/mens-machine-learning-competition-2019/processed/team_metrics/team_metrics_2018.csv \
-    Rscript create_team_metrics.R
+# Set up empty directory structure
+PROCESSEDPATH=${DVCROOT}/data/processed/mens-machine-learning-competition-2019/Stage2
+STAGE2DATAFILESPATH=${DVCROOT}/data/raw/mens-machine-learning-competition-2019/Stage2DataFiles
 
-for i in `seq 2014 2018`;
-do
-  dvc run -d data/mens-machine-learning-competition-2019/processed/games_detailed.csv \
-      -o data/mens-machine-learning-competition-2019/processed/team_metrics/team_metrics_${i}.csv \
-      "Rscript create_team_metrics.R --year=${i} --detailed=data/mens-machine-learning-competition-2019/processed/games_detailed.csv --out=data/mens-machine-learning-competition-2019/processed/team_metrics/team_metrics_${i}.csv"
-done
-    
-for i in `seq 2014 2018`;
-do
-  dvc run -d data/mens-machine-learning-competition-2019/processed/games_detailed.csv \
-      -d data/mens-machine-learning-competition-2019/processed/team_metrics/team_metrics_${i}.csv \
-      -o data/mens-machine-learning-competition-2019/processed/tourney_like_games/tourney_like_games_${i}.csv \
-      "Rscript predict_similar_tourney_games.R --year=${i} --detailed=data/mens-machine-learning-competition-2019/processed/games_detailed.csv --metrics=data/mens-machine-learning-competition-2019/processed/team_metrics/team_metrics_${i}.csv --out=data/mens-machine-learning-competition-2019/processed/tourney_like_games/tourney_like_games_${i}.csv"
-done
+TEAMMETRICSPATH=${PROCESSEDPATH}/team_metrics/recency
+TOURNEYGAMESPATH=${PROCESSEDPATH}/tourney_like_games/recency
+SUBMISSIONSPATH=${PROCESSEDPATH}/submissions
+SRCFEATURES=${DVCROOT}/src/features/mens-machine-learning-competition-2019
 
-for i in `seq 2014 2018`;
-do
-  dvc run -d data/mens-machine-learning-competition-2019/processed/games_detailed.csv \
-      -d data/mens-machine-learning-competition-2019/processed/team_metrics/team_metrics_${i}.csv \
-      -d data/mens-machine-learning-competition-2019/raw/DataFiles/SampleSubmissionStage1.csv \
-      -d data/mens-machine-learning-competition-2019/processed/tourney_like_games/tourney_like_games_${i}.csv \
-      -o data/mens-machine-learning-competition-2019/processed/submissions/model06/submission_${i}.csv \
-      Rscript modelling.R --year=${i} \
-        --detailed=data/mens-machine-learning-competition-2019/processed/games_detailed.csv \
-        --metrics=data/mens-machine-learning-competition-2019/processed/team_metrics/team_metrics_${i}.csv \
-        --subm=data/mens-machine-learning-competition-2019/raw/DataFiles/SampleSubmissionStage1.csv \
-        --tourney_similarity=data/mens-machine-learning-competition-2019/processed/tourney_like_games/tourney_like_games_${i}.csv \
-        --outfile=data/mens-machine-learning-competition-2019/processed/submissions/model06/submission_${i}.csv \
-        --interactions --spread --tourneyprob=0.0327
+mkdir -p ${PROCESSEDPATH}
+mkdir -p ${TEAMMETRICSPATH}
+mkdir -p ${TOURNEYGAMESPATH}
+mkdir -p ${SUBMISSIONSPATH}
+
+dvc run -d ${STAGE2DATAFILESPATH}/RegularSeasonDetailedResults.csv \
+  -d ${STAGE2DATAFILESPATH}/NCAATourneyDetailedResults.csv \
+  -d ${STAGE2DATAFILESPATH}/ConferenceTourneyGames.csv \
+  -o ${PROCESSEDPATH}/games_detailed.csv \
+  -f ${PROCESSEDPATH}/games_detailed.csv.dvc \
+  Rscript ${SRCFEATURES}/make_detailed.R \
+    --regssn=${STAGE2DATAFILESPATH}/RegularSeasonDetailedResults.csv \
+    --ncaatourney=${STAGE2DATAFILESPATH}/NCAATourneyDetailedResults.csv \
+    --conftourney=${STAGE2DATAFILESPATH}/ConferenceTourneyGames.csv \
+    --outfile=${PROCESSEDPATH}/games_detailed.csv
+
+for i in $(seq 2014 2019); do
+  dvc run -d ${PROCESSEDPATH}/games_detailed.csv \
+    -o ${TEAMMETRICSPATH}/team_metrics_${i}.csv \
+    -f ${TEAMMETRICSPATH}/team_metrics_${i}.csv.dvc \
+    Rscript ${SRCFEATURES}/create_team_metrics.R \
+      --year=${i} \
+      --detailed=${PROCESSEDPATH}/games_detailed.csv \
+      --outfile=${TEAMMETRICSPATH}/team_metrics_${i}.csv
 done
 
-
-      
+for i in $(seq 2014 2019); do
+  dvc run -d ${PROCESSEDPATH}/games_detailed.csv \
+    -d ${TEAMMETRICSPATH}/team_metrics_${i}.csv \
+    -o ${TOURNEYGAMESPATH}/tourney_like_games_${i}.csv \
+    -f ${TOURNEYGAMESPATH}/tourney_like_games_${i}.csv.dvc \
+    Rscript ${SRCFEATURES}/predict_similar_tourney_games.R \
+      --year=${i} \
+      --detailed=${PROCESSEDPATH}/games_detailed.csv \
+      --metrics=${TEAMMETRICSPATH}/team_metrics_${i}.csv \
+      --outfile=${TOURNEYGAMESPATH}/tourney_like_games_${i}.csv
+done

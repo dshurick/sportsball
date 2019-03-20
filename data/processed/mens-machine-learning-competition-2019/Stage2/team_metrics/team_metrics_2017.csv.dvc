@@ -1,0 +1,13 @@
+cmd: Rscript ./src/features/mens-machine-learning-competition-2019/create_team_metrics.R
+  --year=2017 --detailed=./data/processed/mens-machine-learning-competition-2019/Stage2/games_detailed.csv
+  --outfile=./data/processed/mens-machine-learning-competition-2019/Stage2/team_metrics/team_metrics_2017.csv
+deps:
+- md5: b2278216dee7414efc0f0d28b908dabe
+  path: data/processed/mens-machine-learning-competition-2019/Stage2/games_detailed.csv
+md5: c8fb7531517c54e2c522d722006dd8af
+outs:
+- cache: true
+  md5: ac3cf6ed3603d97c4becdcbc6944c2f0
+  metric: false
+  path: data/processed/mens-machine-learning-competition-2019/Stage2/team_metrics/team_metrics_2017.csv
+wdir: ../../../../..
