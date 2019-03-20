@@ -1,0 +1,13 @@
+cmd: Rscript ./src/features/womens-machine-learning-competition-2019/create_team_metrics.R
+  --year=2016 --detailed=./data/processed/womens-machine-learning-competition-2019/Stage2/games_detailed.csv
+  --outfile=./data/processed/womens-machine-learning-competition-2019/Stage2/team_metrics/team_metrics_2016.csv
+deps:
+- md5: a5311f5f489e465f01ab11c794464116
+  path: data/processed/womens-machine-learning-competition-2019/Stage2/games_detailed.csv
+md5: 6bb9565263f85bc3c17497023c41113a
+outs:
+- cache: true
+  md5: e0e5b119e8ac872d2fcdf3882c80bd4d
+  metric: false
+  path: data/processed/womens-machine-learning-competition-2019/Stage2/team_metrics/team_metrics_2016.csv
+wdir: ../../../../..

@@ -1,0 +1,16 @@
+cmd: Rscript ./src/features/womens-machine-learning-competition-2019/make_detailed.R
+  --regssn=./data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WRegularSeasonDetailedResults.csv
+  --ncaatourney=./data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WNCAATourneyDetailedResults.csv
+  --outfile=./data/processed/womens-machine-learning-competition-2019/Stage2/games_detailed.csv
+deps:
+- md5: 1c3298c5e3e39d51bb65629b5220964c
+  path: data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WRegularSeasonDetailedResults.csv
+- md5: bc28ec533b05e48ad2f8eb65bc6ad072
+  path: data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WNCAATourneyDetailedResults.csv
+md5: d20b351f0a1fc842c7347235b299fd15
+outs:
+- cache: true
+  md5: a5311f5f489e465f01ab11c794464116
+  metric: false
+  path: data/processed/womens-machine-learning-competition-2019/Stage2/games_detailed.csv
+wdir: ../../../..

@@ -1,0 +1,16 @@
+cmd: Rscript ./src/features/womens-machine-learning-competition-2019/predict_similar_tourney_games.R
+  --year=2015 --detailed=./data/processed/womens-machine-learning-competition-2019/Stage2/games_detailed.csv
+  --metrics=./data/processed/womens-machine-learning-competition-2019/Stage2/team_metrics/team_metrics_2015.csv
+  --outfile=./data/processed/womens-machine-learning-competition-2019/Stage2/tourney_like_games/tourney_like_games_2015.csv
+deps:
+- md5: a5311f5f489e465f01ab11c794464116
+  path: data/processed/womens-machine-learning-competition-2019/Stage2/games_detailed.csv
+- md5: 785bc1364749e0c2c34ef497af9ca9fb
+  path: data/processed/womens-machine-learning-competition-2019/Stage2/team_metrics/team_metrics_2015.csv
+md5: 54abc49b94e519fa14cae2cc7c19d8d5
+outs:
+- cache: true
+  md5: cd6e97717e46048d9da449cbe3fd1c04
+  metric: false
+  path: data/processed/womens-machine-learning-competition-2019/Stage2/tourney_like_games/tourney_like_games_2015.csv
+wdir: ../../../../..

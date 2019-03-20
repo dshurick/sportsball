@@ -1,6 +1,6 @@
-cmd: unzip ./data/raw/womens-machine-learning-competition-2019/zips/WDataFiles.zip
+cmd: unzip -o ./data/raw/womens-machine-learning-competition-2019/zips/WDataFiles.zip
   -d ./data/raw/womens-machine-learning-competition-2019/WDataFiles
-md5: 063dd3f449d71c29796c9c636061a7ac
+md5: 0ef1e6530584749f98962039191ca320
 outs:
 - cache: true
   md5: 2d4c41b8e61bffe8098a4f281754ebf2
