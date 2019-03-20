@@ -194,7 +194,7 @@ def load_detailed_data():
     detailed['topct1'] = detailed.to1 / detailed.poss
     detailed['topct2'] = detailed.to2 / detailed.poss
 
-    # OR% = OR / (OR + DRopp)
+    # OR% = OR / (OR + DR)
     detailed['orpct1'] = detailed.or1 / (detailed.or1 + detailed.dr2)
     detailed['orpct2'] = detailed.or2 / (detailed.or2 + detailed.dr1)
 
