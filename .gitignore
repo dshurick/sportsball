@@ -292,3 +292,4 @@ fabric.properties
 *.rds
 
 # End of https://www.gitignore.io/api/data
+.Rproj.user
