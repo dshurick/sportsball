@@ -1,0 +1,8 @@
+cmd: kaggle competitions download --file SampleSubmissionStage1.csv mens-machine-learning-competition-2019
+md5: 8d9af7b175285c53b4cbf54581819ce0
+outs:
+- cache: true
+  md5: e393747fe995c3322ca49a5602dd419c
+  metric: false
+  path: SampleSubmissionStage1.csv
+wdir: .
