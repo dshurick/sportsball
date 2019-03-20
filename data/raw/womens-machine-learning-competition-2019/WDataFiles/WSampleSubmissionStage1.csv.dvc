@@ -1,0 +1,8 @@
+cmd: kaggle competitions download --file WSampleSubmissionStage1.csv womens-machine-learning-competition-2019
+md5: 0dab3a65cd9fea0be09737c2db6b9bf6
+outs:
+- cache: true
+  md5: 58aaea04bc6708ac93ac3e048ac553c3
+  metric: false
+  path: WSampleSubmissionStage1.csv
+wdir: .

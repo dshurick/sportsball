@@ -1,0 +1,7 @@
+md5: 8e286976df35bbfa4a3cfdb024ceb814
+outs:
+- cache: true
+  md5: f73a80d11b6320dd3e1d2e05400894f7
+  metric: false
+  path: data/raw/mens-machine-learning-competition-2019/team_spellings.csv
+wdir: ../../..

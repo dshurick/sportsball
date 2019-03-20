@@ -1,7 +1,0 @@
-md5: b2a0bfbdadfdc5ae247a7922dd0bc044
-outs:
-- cache: true
-  md5: 8cafaf1ef0e67daf66d3a25f11ff17fc
-  metric: false
-  path: height/height07.csv
-wdir: ..

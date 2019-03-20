@@ -1,7 +1,0 @@
-md5: bad21655db5a1460ddad39ff51a3b48d
-outs:
-- cache: true
-  md5: 99df663d2489691eab3f06dc5a42250e
-  metric: false
-  path: misc/misc02.csv
-wdir: ..

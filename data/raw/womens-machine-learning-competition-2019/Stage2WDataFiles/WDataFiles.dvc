@@ -1,0 +1,49 @@
+cmd: unzip -o ./data/raw/womens-machine-learning-competition-2019/zips/Stage2WDataFiles.zip
+  -d ./data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles
+md5: 5318a79c5447ca7bc6532c36572ad53d
+outs:
+- cache: true
+  md5: 00ec44a0042b3138739a30dabdba05be
+  metric: false
+  path: data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WCities.csv
+- cache: true
+  md5: 9f0d52c3519aa978ae222208c19ee128
+  metric: false
+  path: data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WGameCities.csv
+- cache: true
+  md5: 1a755564a0f69aee87eba6f5d6b2ff93
+  metric: false
+  path: data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WNCAATourneyCompactResults.csv
+- cache: true
+  md5: bc28ec533b05e48ad2f8eb65bc6ad072
+  metric: false
+  path: data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WNCAATourneyDetailedResults.csv
+- cache: true
+  md5: 7726b9d77f3b52dd7978463f210ef4f2
+  metric: false
+  path: data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WNCAATourneySeeds.csv
+- cache: true
+  md5: 148b47daab18a4872baa7b5516097530
+  metric: false
+  path: data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WNCAATourneySlots.csv
+- cache: true
+  md5: f0ab0aa90d94062b151639d64af1d0b8
+  metric: false
+  path: data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WRegularSeasonCompactResults.csv
+- cache: true
+  md5: 1c3298c5e3e39d51bb65629b5220964c
+  metric: false
+  path: data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WRegularSeasonDetailedResults.csv
+- cache: true
+  md5: 187cad9359024b9a956c37d6e916c33a
+  metric: false
+  path: data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WSeasons.csv
+- cache: true
+  md5: 454bb8e9381dbfafdec13ac2d7d7c334
+  metric: false
+  path: data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WTeams.csv
+- cache: true
+  md5: 8e95fe97e7e43023c6b1283f97a1fadc
+  metric: false
+  path: data/raw/womens-machine-learning-competition-2019/Stage2WDataFiles/WTeamSpellings.csv
+wdir: ../../../..

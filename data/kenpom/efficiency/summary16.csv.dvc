@@ -1,7 +1,0 @@
-md5: 5cc0903ed5b2a145baecff3111ea75ce
-outs:
-- cache: true
-  md5: a4992ef13aa9177017563cd4de4e3c9e
-  metric: false
-  path: efficiency/summary16.csv
-wdir: ..

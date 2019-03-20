@@ -1,7 +1,0 @@
-md5: f8f7bedbab845fe24b2704d5ae806903
-outs:
-- cache: true
-  md5: f73a80d11b6320dd3e1d2e05400894f7
-  metric: false
-  path: team_spellings.csv
-wdir: .

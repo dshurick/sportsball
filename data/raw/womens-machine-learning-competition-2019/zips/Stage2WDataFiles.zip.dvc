@@ -1,0 +1,8 @@
+cmd: kaggle competitions download --file Stage2WDataFiles.zip womens-machine-learning-competition-2019
+md5: b054c176db4763320abe4c66310977d6
+outs:
+- cache: true
+  md5: 5f141cb1eb4b962d32aa672245d5ae7f
+  metric: false
+  path: Stage2WDataFiles.zip
+wdir: .

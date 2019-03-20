@@ -1,7 +1,0 @@
-md5: 7915d1a6d51743b09fc26852a6b18421
-outs:
-- cache: true
-  md5: e571796a7412881a32f5a2531ac41363
-  metric: false
-  path: pointdist/pointdist11.csv
-wdir: ..

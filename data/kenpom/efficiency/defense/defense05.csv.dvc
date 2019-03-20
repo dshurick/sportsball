@@ -1,7 +1,0 @@
-md5: 8c62b2819261836896c6f3e4167c3dd4
-outs:
-- cache: true
-  md5: f029725ccfa3420eed4bdfaffea5502a
-  metric: false
-  path: efficiency/defense/defense05.csv
-wdir: ../..

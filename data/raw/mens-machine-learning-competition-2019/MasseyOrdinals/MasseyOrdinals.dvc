@@ -1,0 +1,12 @@
+cmd: unzip ./data/raw/mens-machine-learning-competition-2019/zips/MasseyOrdinals.zip
+  -d ./data/raw/mens-machine-learning-competition-2019/MasseyOrdinals
+deps:
+- md5: e9fd88e5fb807f62de8184a275da2d9f
+  path: data/raw/mens-machine-learning-competition-2019/zips/MasseyOrdinals.zip
+md5: 7fece1456cbd8a582c648d39c789f899
+outs:
+- cache: true
+  md5: 011ae272c50c6101b9e430e95fa9470b
+  metric: false
+  path: data/raw/mens-machine-learning-competition-2019/MasseyOrdinals/MasseyOrdinals.csv
+wdir: ../../../..

@@ -1,0 +1,16 @@
+cmd: unzip ./data/raw/mens-machine-learning-competition-2019/zips/PlayByPlay_2015.zip
+  -d ./data/raw/mens-machine-learning-competition-2019/PlayByPlay
+deps:
+- md5: 1a187c0b597b95c8072d50a738288026
+  path: data/raw/mens-machine-learning-competition-2019/zips/PlayByPlay_2015.zip
+md5: caea23bdeb2ec7967e0b996adf6e417f
+outs:
+- cache: true
+  md5: a5ae3b174ebccc79b83a078380eacc06
+  metric: false
+  path: data/raw/mens-machine-learning-competition-2019/PlayByPlay/Events_2015.csv
+- cache: true
+  md5: bf66ca6c6d0d529eea070f113fd6eeff
+  metric: false
+  path: data/raw/mens-machine-learning-competition-2019/PlayByPlay/Players_2015.csv
+wdir: ../../../..

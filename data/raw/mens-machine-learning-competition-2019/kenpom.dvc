@@ -1,0 +1,7 @@
+md5: 946585f2d37250d820e87c17bfef0dc5
+outs:
+- cache: true
+  md5: e9755848da35075d1f8209c40aceca77.dir
+  metric: false
+  path: data/raw/mens-machine-learning-competition-2019/kenpom
+wdir: ../../..
