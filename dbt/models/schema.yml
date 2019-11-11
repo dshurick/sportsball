@@ -1,0 +1,19 @@
+# This example defines two sources called `source_1` (containing
+# two tables) and `source_2` (containing one table).
+# This is a minimal example of a source definition.
+
+version: 2
+
+sources:
+  - name: sports
+    database: sports
+    schema: public
+    tables:
+      - name: dim_season
+      - name: dim_team
+      - name: dim_season_week
+      - name: game
+      - name: vegas_odds
+      - name: weekly_538_ratings
+      - name: weekly_massey_ratings
+      - name: weekly_sagarin_ratings
