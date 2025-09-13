@@ -17,7 +17,7 @@ class GameDataProcessor:
         """Initialize the processor."""
         self.nfl_teams = NFLTeams()
     
-    def process_historical_games(self, games_df: pd.DataFrame) -> pd.DataFrame:
+    def process_historical_games(self, games_df: pd.DataFrame, include_odds: bool = True) -> pd.DataFrame:
         """
         Process historical game results for model training.
         
@@ -37,6 +37,10 @@ class GameDataProcessor:
         
         # Add derived features
         games_df = self._add_game_features(games_df)
+        
+        # Add odds-based features if available
+        if include_odds:
+            games_df = self._add_odds_features(games_df)
         
         # Create target variable (1 if away team wins, 0 if home team wins)
         games_df['away_team_win'] = (games_df['away_score'] > games_df['home_score']).astype(int)
@@ -181,6 +185,56 @@ class GameDataProcessor:
         if away_team and home_team:
             return int(away_team.conference == home_team.conference)
         return 0
+    
+    def _add_odds_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Add betting odds-based features."""
+        
+        # Spread-based features
+        if 'spread' in df.columns and 'spread_favorite' in df.columns:
+            # Convert spread to home team perspective
+            df['home_spread'] = df.apply(self._calculate_home_spread, axis=1)
+            
+            # Implied win probability from spread
+            df['spread_implied_prob_home'] = df['home_spread'].apply(self._spread_to_probability)
+            df['spread_implied_prob_away'] = 1 - df['spread_implied_prob_home']
+        
+        # Total-based features
+        if 'total' in df.columns:
+            df['game_total'] = df['total']
+            # High/low total indicators
+            df['high_total'] = (df['total'] > 47.5).astype(int) if df['total'].notna().any() else 0
+            df['low_total'] = (df['total'] < 42.5).astype(int) if df['total'].notna().any() else 0
+        
+        return df
+    
+    def _calculate_home_spread(self, row) -> float:
+        """Calculate spread from home team perspective."""
+        if pd.isna(row.get('spread')) or pd.isna(row.get('spread_favorite')):
+            return 0.0
+        
+        spread = row['spread']
+        favorite = row['spread_favorite']
+        
+        if favorite == 'home':
+            return -spread  # Home team favored by spread points
+        elif favorite == 'away':
+            return spread   # Home team underdog by spread points
+        else:  # pick'em
+            return 0.0
+    
+    def _spread_to_probability(self, spread: float) -> float:
+        """Convert point spread to implied win probability using logistic function."""
+        if pd.isna(spread):
+            return 0.5
+        
+        # Empirical formula: P(home_win) = 1 / (1 + exp(0.25 * spread))
+        # This approximates the relationship between spread and win probability
+        import math
+        try:
+            prob = 1 / (1 + math.exp(0.25 * spread))
+            return max(0.01, min(0.99, prob))  # Clamp between 1% and 99%
+        except (OverflowError, ValueError):
+            return 0.5
 
 
 class TeamRatingsProcessor:

@@ -10,7 +10,7 @@ from rich.panel import Panel
 from rich import print as rprint
 from loguru import logger
 
-from ..data import NFLDataScraper, GameDataProcessor, TeamRatingsProcessor
+from ..data import NFLDataScraper, GameDataProcessor, TeamRatingsProcessor, SportsOddsHistoryScraper
 from ..models import WinProbabilityModel
 from ..optimization import EliminatorOptimizer
 from ..utils.config import config
@@ -73,8 +73,12 @@ def train_model(
         raise typer.Exit(1)
     
     # Prepare features and target
-    feature_cols = [col for col in processed_df.columns 
-                   if col not in ['away_team_win', 'season', 'week', 'away_team', 'home_team', 'game_date']]
+    # Exclude target, identifiers, and categorical features that shouldn't be in the model
+    exclude_columns = ['away_team_win', 'season', 'week', 'away_team', 'home_team',
+                      'away_score', 'home_score', 'game_date', 'game_id', 'winner', 
+                      'spread_favorite', 'source']  # Exclude categorical features
+    
+    feature_cols = [col for col in processed_df.columns if col not in exclude_columns]
     
     X = processed_df[feature_cols]
     y = processed_df['away_team_win']
@@ -188,6 +192,99 @@ def optimize_picks(
     else:
         console.print(f"❌ Optimization failed: {result.solver_status}")
         raise typer.Exit(1)
+
+
+@app.command()
+def scrape_odds(
+    season: int = typer.Option(2024, help="NFL season year to scrape"),
+    start_year: Optional[int] = typer.Option(None, help="Start year for multi-season scrape"),
+    end_year: Optional[int] = typer.Option(None, help="End year for multi-season scrape"),
+    output_file: Optional[str] = typer.Option(None, help="Output CSV filename"),
+    preview: bool = typer.Option(False, help="Preview data without saving")
+):
+    """Scrape historical NFL odds from Sports Odds History."""
+    console.print(f"[bold blue]Scraping NFL odds from Sports Odds History[/bold blue]")
+    
+    scraper = SportsOddsHistoryScraper()
+    
+    # Determine what to scrape
+    if start_year and end_year:
+        console.print(f"📅 Scraping seasons {start_year}-{end_year}")
+        df = scraper.scrape_multiple_seasons(start_year, end_year)
+        default_filename = f"nfl_odds_{start_year}_{end_year}"
+    else:
+        console.print(f"📅 Scraping season {season}")
+        df = scraper.scrape_season_odds(season)
+        default_filename = f"nfl_odds_{season}"
+    
+    if df.empty:
+        console.print("❌ No data scraped!")
+        raise typer.Exit(1)
+    
+    # Show summary
+    summary = scraper.get_odds_summary(df)
+    
+    # Create summary table
+    summary_table = Table(title="📊 Scraping Summary")
+    summary_table.add_column("Metric", style="cyan")
+    summary_table.add_column("Value", style="bold green")
+    
+    summary_table.add_row("Total Games", f"{summary['total_games']:,}")
+    summary_table.add_row("Seasons", f"{len(summary['seasons'])}")
+    summary_table.add_row("Weeks", f"{len(summary['weeks'])}")
+    summary_table.add_row("Teams", f"{len(summary['teams'])}")
+    summary_table.add_row("Games with Spread", f"{summary['games_with_spread']:,}")
+    summary_table.add_row("Games with Total", f"{summary['games_with_total']:,}")
+    summary_table.add_row("Games with Results", f"{summary['games_with_results']:,}")
+    
+    console.print(summary_table)
+    
+    # Show sample data
+    if not df.empty:
+        sample_table = Table(title="📋 Sample Data")
+        sample_cols = ['season', 'week', 'away_team', 'home_team', 'spread', 'total']
+        
+        for col in sample_cols:
+            if col in df.columns:
+                sample_table.add_column(col.replace('_', ' ').title(), style="dim")
+        
+        for _, row in df.head(5).iterrows():
+            row_data = []
+            for col in sample_cols:
+                if col in df.columns:
+                    value = row[col]
+                    if pd.isna(value):
+                        row_data.append("-")
+                    else:
+                        row_data.append(str(value))
+            sample_table.add_row(*row_data)
+        
+        console.print(sample_table)
+    
+    if preview:
+        console.print("👀 Preview mode - not saving data")
+        return
+    
+    # Save data
+    output_filename = output_file or default_filename
+    saved_path = scraper.save_odds_data(df, output_filename)
+    
+    if saved_path:
+        console.print(f"✅ Data saved to: {saved_path}")
+        
+        # Show next steps
+        console.print(Panel(
+            f"""
+Next steps:
+1. Review the scraped data for quality
+2. Process for model training:
+   python scripts/setup_historical_data.py {saved_path}
+3. Train enhanced model:
+   eliminator train-model processed_data.csv
+            """.strip(),
+            title="💡 Next Steps",
+            border_style="blue"
+        ))
 
 
 @app.command()

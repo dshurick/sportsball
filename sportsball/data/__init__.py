@@ -2,5 +2,6 @@
 
 from .scraper import NFLDataScraper
 from .processors import GameDataProcessor, TeamRatingsProcessor
+from .odds_scraper import SportsOddsHistoryScraper
 
-__all__ = ["NFLDataScraper", "GameDataProcessor", "TeamRatingsProcessor"]
+__all__ = ["NFLDataScraper", "GameDataProcessor", "TeamRatingsProcessor", "SportsOddsHistoryScraper"]
