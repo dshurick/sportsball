@@ -11,7 +11,7 @@ from rich import print as rprint
 from loguru import logger
 
 from ..data import NFLDataScraper, GameDataProcessor, TeamRatingsProcessor, SportsOddsHistoryScraper
-from ..models import WinProbabilityModel
+from ..models import WinProbabilityModel, SpreadBasedTeamRatings
 from ..optimization import EliminatorOptimizer
 from ..utils.config import config
 
@@ -46,6 +46,55 @@ def scrape_data(
     else:
         console.print("❌ Failed to scrape game schedule")
 
+
+@app.command()
+def train_team_ratings(
+    data_file: str = typer.Argument(..., help="CSV file with historical spread data"),
+    model_name: str = typer.Option("team_ratings_model", help="Name for saved model"),
+    lookback_weeks: int = typer.Option(8, help="Number of weeks to use for rating calculation"),
+    optimize_params: bool = typer.Option(True, help="Whether to optimize hyperparameters")
+):
+    """Train spread-based team ratings model."""
+    console.print(f"[bold blue]Training Spread-Based Team Ratings Model[/bold blue]")
+    
+    # Load data
+    console.print(f"📊 Loading data from {data_file}")
+    try:
+        df = pd.read_csv(data_file)
+        console.print(f"✅ Loaded {len(df)} games from {df['season'].nunique()} seasons")
+    except Exception as e:
+        console.print(f"[red]❌ Error loading data: {e}[/red]")
+        raise typer.Exit(1)
+    
+    # Initialize model
+    model = SpreadBasedTeamRatings(
+        lookback_weeks=lookback_weeks,
+        home_field_advantage=3.0,
+        rating_decay=0.1
+    )
+    
+    # Train model
+    console.print("🏋️ Training model...")
+    with console.status("[bold green]Training in progress..."):
+        model.fit(df, optimize_params=optimize_params)
+    
+    # Save model
+    model_path = config.models_dir / f"{model_name}.joblib"
+    model.save_model(model_path)
+    
+    # Display results
+    metadata = model.model_metadata
+    overall_acc = metadata.get('overall_accuracy', 0)
+    
+    console.print(f"✅ [bold green]Training Complete![/bold green]")
+    console.print(f"📈 Overall Accuracy: {overall_acc:.1%}")
+    console.print(f"💾 Model saved as: {model_name}")
+    
+    # Show optimized parameters
+    console.print("\n⚙️ Optimized Parameters:")
+    console.print(f"  Home Field Advantage: {model.home_field_advantage:.2f} points")
+    console.print(f"  Rating Scale Factor: {model.rating_scale:.2f}")
+    console.print(f"  Previous Season Decay: {model.rating_decay:.1%}")
 
 @app.command()
 def train_model(
@@ -103,7 +152,8 @@ def optimize_picks(
     season: int = typer.Option(2024, help="NFL season year"),
     current_week: int = typer.Option(1, help="Current week number"),
     picked_teams: Optional[str] = typer.Option(None, help="JSON string of already picked teams {week: team}"),
-    model_name: str = typer.Option("win_probability_model", help="Name of trained model"),
+    model_name: str = typer.Option("spread_ratings_model", help="Name of trained model"),
+    model_type: str = typer.Option("team_ratings", help="Model type: 'win_probability' or 'team_ratings'"),
     risk_adjustment: float = typer.Option(0.0, help="Risk adjustment factor (0=neutral, >0=risk averse)"),
 ):
     """Optimize eliminator challenge picks for remaining weeks."""
@@ -120,14 +170,21 @@ def optimize_picks(
             console.print("❌ Invalid picked_teams JSON format")
             raise typer.Exit(1)
     
-    # Load model
+    # Load model based on type
     try:
-        model = WinProbabilityModel(model_name)
-        model.load_model()
-        console.print(f"✅ Loaded model: {model_name}")
+        if model_type == "team_ratings":
+            model = SpreadBasedTeamRatings()
+            model.load_model(config.models_dir / f"{model_name}.joblib")
+        else:
+            model = WinProbabilityModel(model_name)
+            model.load_model()
+        console.print(f"✅ Loaded {model_type} model: {model_name}")
     except FileNotFoundError:
         console.print(f"❌ Model not found: {model_name}")
-        console.print("💡 Train a model first using: eliminator train-model")
+        if model_type == "team_ratings":
+            console.print("💡 Train a team ratings model first using: eliminator train-team-ratings")
+        else:
+            console.print("💡 Train a model first using: eliminator train-model")
         raise typer.Exit(1)
     
     # Load or scrape current data
