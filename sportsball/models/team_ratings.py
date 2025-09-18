@@ -323,6 +323,12 @@ class SpreadBasedTeamRatings(BaseModel):
     def _get_team_rating(self, team: str, season: int, week: int) -> float:
         """Get team rating for specific season/week."""
         if season not in self.team_ratings:
+            # Use previous season ratings with decay if available
+            prev_season = season - 1
+            if prev_season in self.team_ratings:
+                prev_rating = self.team_ratings[prev_season].get(team, 0.0)
+                # Apply decay for new season
+                return prev_rating * (1 - self.rating_decay)
             return 0.0
         
         return self.team_ratings[season].get(team, 0.0)

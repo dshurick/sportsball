@@ -52,53 +52,57 @@ class SportsOddsHistoryScraper:
             # Debug: Let's see what we can find
             logger.info("Analyzing page structure...")
             
-            # Look for different possible week indicators
-            week_links = soup.find_all('a', href=re.compile(r'#\d+'))
-            week_anchors = soup.find_all('a', {'name': re.compile(r'^\d+$')})
-            
-            logger.info(f"Found {len(week_links)} week links and {len(week_anchors)} week anchors")
+            # Look for anchor tags with id attributes (like <a id="9">)
+            week_anchors_by_id = soup.find_all('a', id=re.compile(r'^\d+$'))
+            logger.info(f"Found {len(week_anchors_by_id)} week anchors by ID")
             
             # Try to find tables directly
-            all_tables = soup.find_all('table')
-            logger.info(f"Found {len(all_tables)} tables on page")
+            soh_tables = soup.find_all('table', class_='soh1')
+            logger.info(f"Found {len(soh_tables)} tables on page")
             
-            # Look for week sections in different ways
-            week_sections = week_anchors if week_anchors else []
-            
-            # If no anchors found, try to find week patterns in text
-            if not week_sections:
-                # Look for "Week X" patterns in the HTML
-                week_headers = soup.find_all(text=re.compile(r'Week\s+\d+', re.IGNORECASE))
-                logger.info(f"Found {len(week_headers)} week header texts")
-                
-                # Try to parse tables sequentially if we can't find specific week markers
-                if all_tables:
-                    logger.info("Attempting to parse tables sequentially")
-                    for i, table in enumerate(all_tables[:18]):  # Assume first 18 tables are weeks 1-18
-                        week_num = i + 1
-                        logger.info(f"Parsing table {i+1} as week {week_num}")
-                        week_games = self._parse_week_table(table, season, week_num)
-                        if week_games:
-                            games_data.extend(week_games)
-            else:
-                # Original logic with week anchors
-                for week_anchor in week_sections:
+            # Use anchor-based parsing if we found week anchors
+            if week_anchors_by_id:
+                logger.info("Using anchor-based week identification")
+                for anchor in week_anchors_by_id:
                     try:
-                        week_num = int(week_anchor.get('name'))
+                        week_num = int(anchor.get('id'))
                         if week_num > 18:  # Skip playoff weeks for now
                             continue
                             
-                        logger.info(f"Scraping week {week_num}")
+                        logger.info(f"Looking for Week {week_num} table")
                         
-                        # Find the table following this week anchor
-                        week_table = self._find_week_table(week_anchor)
-                        if week_table:
-                            week_games = self._parse_week_table(week_table, season, week_num)
-                            games_data.extend(week_games)
+                        # Find the next table after this anchor
+                        current = anchor
+                        table = None
+                        # Look through next siblings to find the table
+                        for sibling in anchor.find_next_siblings():
+                            if sibling.name == 'table' and 'soh1' in sibling.get('class', []):
+                                table = sibling
+                                break
+                            # Stop if we hit another week anchor
+                            if sibling.name == 'a' and sibling.get('id', '').isdigit():
+                                break
+                        
+                        if table:
+                            logger.info(f"Found table for Week {week_num}")
+                            week_games = self._parse_week_table(table, season, week_num)
+                            if week_games:
+                                games_data.extend(week_games)
+                        else:
+                            logger.warning(f"No table found for Week {week_num}")
                             
                     except (ValueError, AttributeError) as e:
-                        logger.warning(f"Error parsing week section: {e}")
+                        logger.warning(f"Error parsing week anchor: {e}")
                         continue
+            else:
+                # Fallback to sequential parsing
+                logger.info("Falling back to sequential table parsing")
+                for i, table in enumerate(soh_tables[:18]):  # Limit to reasonable number
+                    week_num = i + 1
+                    logger.info(f"Parsing table {i+1} as week {week_num}")
+                    week_games = self._parse_week_table(table, season, week_num)
+                    if week_games:
+                        games_data.extend(week_games)
             
             if games_data:
                 df = pd.DataFrame(games_data)
@@ -168,70 +172,148 @@ class SportsOddsHistoryScraper:
         return games
     
     def _parse_game_row(self, cells: List, season: int, week: int) -> Optional[Dict]:
-        """Parse a single game row into structured data."""
+        """Parse a single game row from sportsoddshistory.com format."""
         try:
             # Extract text from cells
             cell_texts = [cell.get_text(strip=True) for cell in cells]
             
-            # Look for team names and odds patterns
-            # Format is typically: "Team1 @ Team2" or "Team1 vs Team2"
-            game_info = None
-            
-            # Look for team matchup patterns in different cells
-            for i, text in enumerate(cell_texts):
-                # Look for team matchup (contains @ or vs or common team abbreviations)
-                if any(pattern in text for pattern in ['@', ' vs ', ' at ', 'vs.']):
-                    game_info = text
-                    break
-                # Also look for cells that might contain team names
-                elif len(text) >= 2 and text.isupper() and len(text) <= 10:
-                    # Might be team abbreviations
-                    potential_teams = text.split()
-                    if len(potential_teams) == 2:
-                        # Check if both look like team abbreviations
-                        if all(len(team) <= 4 and team.isupper() for team in potential_teams):
-                            game_info = f"{potential_teams[0]} @ {potential_teams[1]}"
-                            break
-            
-            # If still no game info, try to construct from individual team cells
-            if not game_info:
-                # Look for individual team abbreviations in adjacent cells
-                team_candidates = []
-                for text in cell_texts:
-                    if len(text) == 2 or len(text) == 3:
-                        abbr = self._normalize_team_name(text)
-                        if abbr:
-                            team_candidates.append(abbr)
+            # Skip if not enough cells or if it's a header row
+            if len(cell_texts) < 10:
+                return None
                 
-                if len(team_candidates) >= 2:
-                    game_info = f"{team_candidates[0]} @ {team_candidates[1]}"
-            
-            if not game_info:
+            # Skip header rows
+            if any(header in ' '.join(cell_texts).lower() for header in ['day', 'date', 'time', 'favorite', 'underdog']):
                 return None
             
-            # Parse team names
-            teams = self._parse_team_matchup(game_info)
-            if not teams:
+            # sportsoddshistory.com format:
+            # 0: Day, 1: Date, 2: Time, 3: @, 4: Favorite, 5: Score, 6: Spread, 7: @, 8: Underdog, 9: Over/Under, 10: Notes
+            
+            at_symbol_col3 = cell_texts[3] if len(cell_texts) > 3 else ""
+            favorite_text = cell_texts[4] if len(cell_texts) > 4 else ""
+            score_text = cell_texts[5] if len(cell_texts) > 5 else ""
+            spread_text = cell_texts[6] if len(cell_texts) > 6 else ""
+            at_symbol_col7 = cell_texts[7] if len(cell_texts) > 7 else ""
+            underdog_text = cell_texts[8] if len(cell_texts) > 8 else ""
+            total_text = cell_texts[9] if len(cell_texts) > 9 else ""
+            
+            # Extract team names
+            favorite_team = self._normalize_team_name(favorite_text)
+            underdog_team = self._normalize_team_name(underdog_text)
+            
+            if not favorite_team or not underdog_team:
                 return None
             
-            away_team, home_team = teams
+            # Determine home/away based on @ symbols in columns 3 and 7
+            # Column 3 @ means favorite is home, Column 7 @ means underdog is home
+            if at_symbol_col3 == "@":
+                # Favorite is home, underdog is away
+                home_team = favorite_team
+                away_team = underdog_team
+            elif at_symbol_col7 == "@":
+                # Underdog is home, favorite is away
+                home_team = underdog_team
+                away_team = favorite_team
+            else:
+                # Neutral site game - default to favorite as home
+                home_team = favorite_team
+                away_team = underdog_team
             
-            # Look for spread and total in nearby cells
-            spread_data = self._extract_spread_from_cells(cell_texts)
-            total_data = self._extract_total_from_cells(cell_texts)
+            # Parse spread
+            spread_value = None
+            spread_favorite = None
+            if spread_text:
+                spread_match = re.search(r'([WL])\s*([+-]?\d+(?:\.\d+)?)', spread_text)
+                if spread_match:
+                    win_loss = spread_match.group(1)
+                    spread_value = float(spread_match.group(2))
+                    # Determine which team was favored based on home/away assignment
+                    # We already determined home/away above, so use that logic
+                    if at_symbol_col3 == "@":
+                        # Favorite is home, so if spread_value < 0, home is favored
+                        spread_favorite = "home" if spread_value < 0 else "away"
+                    elif at_symbol_col7 == "@":
+                        # Underdog is home, so if spread_value < 0, away is favored
+                        spread_favorite = "away" if spread_value < 0 else "home"
+                    else:
+                        # Neutral site, default to favorite being favored
+                        spread_favorite = "home" if spread_value < 0 else "away"
             
-            # Try to find the result/score
-            result_data = self._extract_result_from_cells(cell_texts)
+            # Parse total
+            total_value = None
+            if total_text:
+                total_match = re.search(r'([OU])\s*(\d+(?:\.\d+)?)', total_text)
+                if total_match:
+                    total_value = float(total_match.group(2))
+            
+            # Parse score
+            away_score = None
+            home_score = None
+            winner = None
+            if score_text:
+                # Look for score pattern like "W 27-21" or "L 21-27"
+                score_match = re.search(r'([WL])\s*(\d+)-(\d+)', score_text)
+                if score_match:
+                    win_loss = score_match.group(1)
+                    score1 = int(score_match.group(2))
+                    score2 = int(score_match.group(3))
+                    
+                    # The score_text is always for the 'favorite' team column
+                    if win_loss == "W":
+                        if at_symbol_col3 == "@":
+                            # Favorite is home and won
+                            home_score = score1
+                            away_score = score2
+                            winner = "home"
+                        elif at_symbol_col7 == "@":
+                            # Underdog is home, favorite is away and won
+                            away_score = score1
+                            home_score = score2
+                            winner = "away"
+                        else:
+                            # Neutral site, favorite won (default to home)
+                            home_score = score1
+                            away_score = score2
+                            winner = "home"
+                    else:  # win_loss == "L"
+                        if at_symbol_col3 == "@":
+                            # Favorite is home and lost
+                            home_score = score2
+                            away_score = score1
+                            winner = "away"
+                        elif at_symbol_col7 == "@":
+                            # Underdog is home, favorite is away and lost
+                            away_score = score2
+                            home_score = score1
+                            winner = "home"
+                        else:
+                            # Neutral site, favorite lost (default to home)
+                            home_score = score2
+                            away_score = score1
+                            winner = "away"
+            
+            # Parse date for game_date
+            date_text = cell_texts[1] if len(cell_texts) > 1 else ""
+            game_date = None
+            if date_text:
+                try:
+                    # Parse date like "Oct 31, 2024"
+                    game_date = datetime.strptime(date_text, "%b %d, %Y").strftime("%Y-%m-%d")
+                except:
+                    game_date = f"{season}-01-01"  # fallback
             
             game_data = {
                 'season': season,
                 'week': week,
                 'away_team': away_team,
                 'home_team': home_team,
-                'game_info': game_info,
-                **spread_data,
-                **total_data,
-                **result_data
+                'spread': abs(spread_value) if spread_value else None,
+                'spread_favorite': spread_favorite,
+                'spread_line': spread_value,
+                'total': total_value,
+                'away_score': away_score,
+                'home_score': home_score,
+                'winner': winner,
+                'game_date': game_date
             }
             
             return game_data
