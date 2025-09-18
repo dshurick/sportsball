@@ -292,19 +292,19 @@ def main():
         epilog="""
 Examples:
   # 2025 season starting from Week 1 (no previous picks)
-  python scripts/optimize_eliminator_2025_fixed.py
+  python scripts/optimize_eliminator_picks.py
   
   # 2025 season starting from Week 3, with Week 1 and 2 picks
-  python scripts/optimize_eliminator_2025_fixed.py --used-teams "DEN,KC"
+  python scripts/optimize_eliminator_picks.py --used-teams "DEN,KC"
   
   # Specific week format
-  python scripts/optimize_eliminator_2025_fixed.py --used-teams "1:DEN,2:KC,4:BUF"
+  python scripts/optimize_eliminator_picks.py --used-teams "1:DEN,2:KC,4:BUF"
   
   # 2026 season (when available)
-  python scripts/optimize_eliminator_2025_fixed.py --season 2026 --predictions-file data/processed/nfl_2026_predictions_updated.csv
+  python scripts/optimize_eliminator_picks.py --season 2026 --predictions-file data/processed/nfl_2026_predictions_updated.csv
   
   # Mid-season optimization from Week 8
-  python scripts/optimize_eliminator_2025_fixed.py --start-week 8 --used-teams "DEN,KC,BUF,MIA,BAL,SF,GB"
+  python scripts/optimize_eliminator_picks.py --start-week 8 --used-teams "DEN,KC,BUF,MIA,BAL,SF,GB"
         """
     )
     

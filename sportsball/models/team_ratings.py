@@ -8,6 +8,7 @@ from sklearn.metrics import log_loss, accuracy_score
 from loguru import logger
 import joblib
 from pathlib import Path
+from datetime import datetime, timedelta
 
 from .base import BaseModel
 from ..utils.config import config
@@ -19,38 +20,36 @@ class SpreadBasedTeamRatings(BaseModel):
     Dynamic team rating model using betting spreads.
     
     This model:
-    1. Uses recent game spreads (8-week window) to estimate team ratings
-    2. Incorporates previous season ratings for early season predictions
+    1. Uses historical game spreads with exponential time-based weighting
+    2. Weights recent games more heavily (up to 52 weeks back)
     3. Forecasts game probabilities using logistic regression on rating differences
-    4. Optimizes all parameters for maximum predictive accuracy
+    4. Optimizes home field advantage and rating decay parameters
     """
     
     def __init__(self, 
-                 lookback_weeks: int = 8,
                  home_field_advantage: float = 3.0,
-                 rating_decay: float = 0.1):
+                 rating_decay: float = 0.1,
+                 max_weeks_back: int = 52):
         """
         Initialize the team rating model.
         
         Args:
-            lookback_weeks: Number of recent weeks to use for rating calculation
             home_field_advantage: Points advantage for home team
             rating_decay: How much to decay previous season ratings
+            max_weeks_back: Maximum weeks to look back for game weighting
         """
         super().__init__("spread_based_team_ratings")
-        self.lookback_weeks = lookback_weeks
         self.home_field_advantage = home_field_advantage
         self.rating_decay = rating_decay
+        self.max_weeks_back = max_weeks_back
         self.nfl_teams = NFLTeams()
         
         # Model parameters (to be optimized)
         self.team_ratings = {}  # {season: {team: rating}}
-        self.rating_scale = 1.0  # Scaling factor for rating differences
-        self.previous_season_weight = 0.8  # Weight for previous season ratings
         
         # Model metadata
         self.model_metadata = {
-            'lookback_weeks': lookback_weeks,
+            'max_weeks_back': max_weeks_back,
             'home_field_advantage': home_field_advantage,
             'rating_decay': rating_decay,
             'training_seasons': [],
@@ -81,11 +80,17 @@ class SpreadBasedTeamRatings(BaseModel):
             logger.info("Optimizing model parameters")
             self._optimize_parameters(games_df)
         
-        # Calculate team ratings for each season
+        # Calculate team ratings for each season using all historical data
         for season in seasons:
             logger.info(f"Calculating team ratings for {season} season")
+            
+            # Get all games up to the end of this season for time-weighted calculation
+            historical_games = games_df[games_df['season'] <= season]
+            
+            # Get current season teams
             season_games = games_df[games_df['season'] == season]
-            self.team_ratings[season] = self._calculate_season_ratings(season_games, season)
+            
+            self.team_ratings[season] = self._calculate_season_ratings(historical_games, season)
         
         # Evaluate model performance
         self._evaluate_model(games_df)
@@ -117,9 +122,8 @@ class SpreadBasedTeamRatings(BaseModel):
         # Calculate rating difference (away - home - home_field_advantage)
         rating_diff = away_rating - home_rating - self.home_field_advantage
         
-        # Apply scaling and convert to probability via logistic function
-        scaled_diff = rating_diff * self.rating_scale
-        prob_away_wins = 1 / (1 + np.exp(-scaled_diff))
+        # Convert to probability via logistic function
+        prob_away_wins = 1 / (1 + np.exp(-rating_diff))
         
         return prob_away_wins
     
@@ -216,22 +220,15 @@ class SpreadBasedTeamRatings(BaseModel):
         # For now, return season ratings
         return self.team_ratings[season].copy()
     
-    def _calculate_season_ratings(self, season_games: pd.DataFrame, season: int) -> Dict[str, float]:
-        """Calculate team ratings for a specific season."""
+    def _calculate_season_ratings(self, historical_games: pd.DataFrame, season: int) -> Dict[str, float]:
+        """Calculate team ratings for a specific season using all available historical data."""
         
-        # Initialize ratings
-        teams = list(set(season_games['away_team'].unique()) | set(season_games['home_team'].unique()))
+        # Get all teams from current season
+        current_season_games = historical_games[historical_games['season'] == season]
+        teams = list(set(current_season_games['away_team'].unique()) | set(current_season_games['home_team'].unique()))
         
-        # Get previous season ratings if available
-        prev_season_ratings = {}
-        if season - 1 in self.team_ratings:
-            prev_season_ratings = self.team_ratings[season - 1].copy()
-            # Apply decay to previous season ratings
-            for team in prev_season_ratings:
-                prev_season_ratings[team] *= (1 - self.rating_decay)
-        
-        # Calculate ratings using spread-based approach
-        ratings = self._solve_team_ratings(season_games, teams, prev_season_ratings)
+        # Use all historical games for time-weighted rating calculation
+        ratings = self._solve_team_ratings(historical_games, teams, {})
         
         return ratings
     
@@ -260,10 +257,18 @@ class SpreadBasedTeamRatings(BaseModel):
         targets = []
         weights = []
         
+        # Get the most recent game date to calculate relative weights
+        games_df['game_date'] = pd.to_datetime(games_df['game_date'])
+        most_recent_date = games_df['game_date'].max()
+        
         for _, game in games_df.iterrows():
-            away_idx = team_to_idx[game['away_team']]
-            home_idx = team_to_idx[game['home_team']]
+            away_idx = team_to_idx.get(game['away_team'])
+            home_idx = team_to_idx.get(game['home_team'])
             
+            # Skip games with teams not in current season
+            if away_idx is None or home_idx is None:
+                continue
+                
             # Equation: home_rating - away_rating = spread - home_field_advantage
             equation = np.zeros(n_teams)
             equation[home_idx] = 1
@@ -271,8 +276,18 @@ class SpreadBasedTeamRatings(BaseModel):
             
             target = game['spread'] - self.home_field_advantage
             
-            # Weight recent games more (assuming games are chronologically ordered)
-            weight = 1.0  # Could add recency weighting here
+            # Calculate exponential time-based weight
+            game_date = pd.to_datetime(game['game_date'])
+            weeks_ago = (most_recent_date - game_date).days / 7.0
+            
+            # Skip games older than max_weeks_back
+            if weeks_ago > self.max_weeks_back:
+                continue
+                
+            # Exponential decay: weight = exp(-weeks_ago / decay_constant)
+            # At 52 weeks, weight should be close to 0, so decay_constant ≈ 52/5 ≈ 10
+            decay_constant = self.max_weeks_back / 5.0
+            weight = np.exp(-weeks_ago / decay_constant)
             
             equations.append(equation)
             targets.append(target)
@@ -310,13 +325,7 @@ class SpreadBasedTeamRatings(BaseModel):
         # Ensure ratings sum to zero
         ratings_array -= np.mean(ratings_array)
         
-        # Blend with previous season ratings for early season
-        if prev_ratings and len(games_df) < 5 * len(teams):  # Less than ~5 games per team
-            blend_weight = min(len(games_df) / (3 * len(teams)), 1.0)  # Gradually increase weight
-            for i, team in enumerate(teams):
-                if team in prev_ratings:
-                    ratings_array[i] = (blend_weight * ratings_array[i] + 
-                                      (1 - blend_weight) * prev_ratings[team])
+        # No blending - ratings are determined purely by time-weighted historical data
         
         return {team: ratings_array[i] for i, team in enumerate(teams)}
     
@@ -339,19 +348,22 @@ class SpreadBasedTeamRatings(BaseModel):
         def objective(params):
             """Objective function to minimize (negative log likelihood)."""
             self.home_field_advantage = params[0]
-            self.rating_scale = params[1]
-            self.rating_decay = params[2]
+            self.rating_decay = params[1]
             
             # Calculate predictions and compute log loss
             total_loss = 0
             total_games = 0
             
             for season in sorted(games_df['season'].unique()):
-                season_games = games_df[games_df['season'] == season]
+                # Get all games up to the end of this season for time-weighted calculation
+                historical_games = games_df[games_df['season'] <= season]
                 
                 # Calculate ratings for this season
-                season_ratings = self._calculate_season_ratings(season_games, season)
+                season_ratings = self._calculate_season_ratings(historical_games, season)
                 self.team_ratings[season] = season_ratings
+                
+                # Get current season games for evaluation
+                season_games = games_df[games_df['season'] == season]
                 
                 # Predict games from week 6 onward for evaluation
                 eval_games = season_games[season_games['week'] >= 6]
@@ -376,19 +388,17 @@ class SpreadBasedTeamRatings(BaseModel):
             return total_loss / max(total_games, 1)
         
         # Optimize parameters
-        initial_params = [self.home_field_advantage, self.rating_scale, self.rating_decay]
-        bounds = [(0, 6), (0.1, 3.0), (0, 0.5)]
+        initial_params = [self.home_field_advantage, self.rating_decay]
+        bounds = [(0, 6), (0, 0.5)]
         
         result = minimize(objective, initial_params, bounds=bounds, method='L-BFGS-B')
         
         if result.success:
             self.home_field_advantage = result.x[0]
-            self.rating_scale = result.x[1] 
-            self.rating_decay = result.x[2]
+            self.rating_decay = result.x[1]
             
             logger.info(f"Optimized parameters:")
             logger.info(f"  Home field advantage: {self.home_field_advantage:.2f}")
-            logger.info(f"  Rating scale: {self.rating_scale:.2f}")
             logger.info(f"  Rating decay: {self.rating_decay:.3f}")
         else:
             logger.warning("Parameter optimization failed, using default values")
@@ -438,10 +448,8 @@ class SpreadBasedTeamRatings(BaseModel):
         model_data = {
             'team_ratings': self.team_ratings,
             'home_field_advantage': self.home_field_advantage,
-            'rating_scale': self.rating_scale,
             'rating_decay': self.rating_decay,
-            'lookback_weeks': self.lookback_weeks,
-            'previous_season_weight': self.previous_season_weight,
+            'max_weeks_back': self.max_weeks_back,
             'model_metadata': self.model_metadata
         }
         
@@ -460,10 +468,8 @@ class SpreadBasedTeamRatings(BaseModel):
         
         self.team_ratings = model_data['team_ratings']
         self.home_field_advantage = model_data['home_field_advantage']
-        self.rating_scale = model_data['rating_scale']
         self.rating_decay = model_data['rating_decay']
-        self.lookback_weeks = model_data['lookback_weeks']
-        self.previous_season_weight = model_data['previous_season_weight']
+        self.max_weeks_back = model_data.get('max_weeks_back', 52)  # Backward compatibility
         self.model_metadata = model_data['model_metadata']
         
         logger.info(f"Team ratings model loaded from {filepath}")

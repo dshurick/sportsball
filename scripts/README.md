@@ -54,9 +54,27 @@ This directory contains the essential scripts for the NFL Eliminator Challenge s
   - **No model loading**: Ensures predictions reflect most recent results
 - **Output**: `data/processed/nfl_2025_predictions_updated.csv`
 
-### 5. `optimize_eliminator_2025_fixed.py`
-- **Purpose**: Optimizes eliminator picks for Weeks 2-18 using linear programming
-- **Usage**: Run after generating predictions to get optimal pick strategy
+### 5. `optimize_eliminator_picks.py` *(formerly optimize_eliminator_2025_fixed.py)*
+- **Purpose**: Optimizes eliminator picks for any season starting from any week
+- **Features**:
+  - **Multi-season support**: Works for 2025, 2026, or any future season
+  - **Mid-season optimization**: Start from any week with previous picks
+  - **Flexible input**: Specify used teams via command line
+  - **Auto-detection**: Automatically determines start week from used teams
+- **Usage Examples**:
+  ```bash
+  # Season start (no previous picks)
+  uv run python scripts/optimize_eliminator_picks.py
+  
+  # Mid-season with previous picks
+  uv run python scripts/optimize_eliminator_picks.py --used-teams "DEN,KC,BUF"
+  
+  # Specific weeks format
+  uv run python scripts/optimize_eliminator_picks.py --used-teams "1:DEN,3:KC,5:BUF"
+  
+  # Different season
+  uv run python scripts/optimize_eliminator_picks.py --season 2026
+  ```
 - **Output**: Console output with recommended picks and probabilities
 
 ## Seamless Workflow
@@ -84,14 +102,14 @@ uv run python scripts/train_team_ratings.py
 uv run python scripts/generate_updated_2025_predictions.py
 
 # 5. Get optimal eliminator picks (uses predictions)
-uv run python scripts/optimize_eliminator_2025_fixed.py
+uv run python scripts/optimize_eliminator_picks.py
 ```
 
 **✨ The scripts automatically chain together:**
 - `create_merged_dataset.py` uses the latest scraped odds file
 - `train_team_ratings.py` uses `data/raw/nfl_merged_2023_2025_complete.csv`
 - `generate_updated_2025_predictions.py` trains fresh model with all data for latest predictions
-- `optimize_eliminator_2025_fixed.py` uses `data/processed/nfl_2025_predictions_updated.csv`
+- `optimize_eliminator_picks.py` uses `data/processed/nfl_2025_predictions_updated.csv`
 
 ## Weekly Updates
 

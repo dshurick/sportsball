@@ -20,7 +20,7 @@ uv run python scripts/generate_updated_2025_predictions.py
 
 echo ""
 echo "🎯 Step 4: Optimizing eliminator picks..."
-uv run python scripts/optimize_eliminator_2025_fixed.py
+uv run python scripts/optimize_eliminator_picks.py
 
 echo ""
 echo "✅ PIPELINE COMPLETE!"
