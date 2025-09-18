@@ -18,28 +18,34 @@ from sportsball.models.team_ratings import SpreadBasedTeamRatings
 from sportsball.utils.logging import setup_logging, logger
 from sportsball.utils.config import config
 
-def load_historical_data() -> pd.DataFrame:
+def load_historical_data(data_file: str = None) -> pd.DataFrame:
     """Load historical spread data."""
     
-    # Try to load the sample data we created
+    # Default to the merged dataset created by create_merged_dataset.py
+    if data_file is None:
+        data_file = "data/raw/nfl_merged_2023_2025_complete.csv"
+    
+    # Try to load the specified file or fallback options
     data_files = [
+        data_file,
         "data/raw/nfl_odds_2020_2023_sample.csv",
         "historical_spreads_2020_2024.csv",
         "data/raw/nfl_odds_2024_sample.csv"
     ]
     
-    dfs = []
+    combined_df = None
     for file_path in data_files:
         if Path(file_path).exists():
             logger.info(f"Loading data from {file_path}")
-            df = pd.read_csv(file_path)
-            dfs.append(df)
+            combined_df = pd.read_csv(file_path)
+            break
     
-    if not dfs:
-        raise FileNotFoundError("No historical data files found. Run create_sample_odds_data.py first.")
+    if combined_df is None:
+        raise FileNotFoundError(f"No historical data files found. Expected: {data_file}")
     
-    # Combine all data
-    combined_df = pd.concat(dfs, ignore_index=True)
+    # If this is the merged dataset, it's already combined
+    if file_path == data_file:
+        logger.info(f"Using merged dataset with {len(combined_df)} games")
     
     # Ensure required columns exist
     required_cols = ['season', 'week', 'away_team', 'home_team', 'spread', 'away_score', 'home_score']
@@ -55,8 +61,8 @@ def load_historical_data() -> pd.DataFrame:
             axis=1
         )
     
-    # Filter to regular season games only (weeks 1-17/18)
-    combined_df = combined_df[combined_df['week'] <= 17]
+    # Filter to regular season games only (weeks 1-18)
+    combined_df = combined_df[combined_df['week'] <= 18]
     
     logger.info(f"Loaded {len(combined_df)} games from {combined_df['season'].nunique()} seasons")
     return combined_df
@@ -133,22 +139,74 @@ def test_predictions(model: SpreadBasedTeamRatings, test_games: pd.DataFrame) ->
 def main():
     """Main training and evaluation pipeline."""
     
+    import argparse
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Train spread-based team ratings model")
+    parser.add_argument('--data-file', 
+                       default='data/raw/nfl_merged_2023_2025_complete.csv',
+                       help='Path to merged dataset (default: output from create_merged_dataset.py)')
+    parser.add_argument('--output-dir', 
+                       default='data/models/',
+                       help='Directory to save trained model')
+    parser.add_argument('--production', 
+                       action='store_true',
+                       help='Production mode: train on all data (no test set for evaluation)')
+    
+    args = parser.parse_args()
+    
     setup_logging()
     
     print("🏈 SPREAD-BASED TEAM RATINGS MODEL")
     print("=" * 50)
+    print(f"📂 Input Data: {args.data_file}")
+    print(f"📂 Output Dir: {args.output_dir}")
+    print()
     
     # Load historical data
     logger.info("Loading historical spread data")
-    games_df = load_historical_data()
+    games_df = load_historical_data(args.data_file)
     
-    # Split into train/test
-    # Use 2020-2022 for training, 2023+ for testing
-    train_df = games_df[games_df['season'] <= 2022]
-    test_df = games_df[games_df['season'] >= 2023]
+    # Filter to complete training data (no missing spreads or scores)
+    original_count = len(games_df)
+    games_df = games_df[
+        games_df['spread'].notna() & 
+        games_df['away_score'].notna() & 
+        games_df['home_score'].notna()
+    ].copy()
     
-    logger.info(f"Training on {len(train_df)} games from {train_df['season'].nunique()} seasons")
-    logger.info(f"Testing on {len(test_df)} games from {test_df['season'].nunique()} seasons")
+    filtered_count = original_count - len(games_df)
+    if filtered_count > 0:
+        logger.info(f"Filtered out {filtered_count} games with missing data")
+        logger.info(f"Using {len(games_df)} complete games for training")
+    
+    # Split into train/test based on available data and mode
+    available_seasons = sorted(games_df['season'].unique())
+    logger.info(f"Available seasons: {available_seasons}")
+    
+    if args.production:
+        # Production mode: use all data for training
+        train_df = games_df
+        test_df = pd.DataFrame()
+        logger.info("🚀 PRODUCTION MODE: Training on all available data")
+        logger.info(f"Training on {len(train_df)} games from {len(available_seasons)} seasons")
+    else:
+        # Evaluation mode: hold out test set for performance analysis
+        if len(available_seasons) >= 3:
+            # Use all but the last season for training, last season for testing
+            train_seasons = available_seasons[:-1]
+            test_seasons = [available_seasons[-1]]
+            train_df = games_df[games_df['season'].isin(train_seasons)]
+            test_df = games_df[games_df['season'].isin(test_seasons)]
+        else:
+            # Use all data for training if we have limited seasons
+            train_df = games_df
+            test_df = pd.DataFrame()
+            logger.info("Using all data for training (limited seasons available)")
+        
+        logger.info(f"📊 EVALUATION MODE: Training on {len(train_df)} games from {len(train_seasons) if len(available_seasons) >= 3 else len(available_seasons)} seasons")
+        if len(test_df) > 0:
+            logger.info(f"Testing on {len(test_df)} games from {len(test_seasons)} seasons")
     
     # Initialize and train model
     logger.info("Initializing team ratings model")
@@ -163,8 +221,11 @@ def main():
     model.fit(train_df, optimize_params=True)
     
     # Save the trained model
-    model.save_model()
-    logger.info("Model saved successfully")
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    model_file = output_dir / "spread_based_team_ratings.pkl"
+    model.save_model(model_file)
+    logger.info(f"Model saved successfully to {model_file}")
     
     # Analyze performance
     analyze_model_performance(model)

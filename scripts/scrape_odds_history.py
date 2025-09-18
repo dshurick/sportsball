@@ -35,11 +35,11 @@ def main():
     if args.season:
         logger.info(f"Scraping single season: {args.season}")
         df = scraper.scrape_season_odds(args.season)
-        default_filename = f"nfl_odds_{args.season}"
+        default_filename = f"nfl_odds_{args.season}_complete"
     else:
         logger.info(f"Scraping multiple seasons: {args.start_year}-{args.end_year}")
         df = scraper.scrape_multiple_seasons(args.start_year, args.end_year)
-        default_filename = f"nfl_odds_{args.start_year}_{args.end_year}"
+        default_filename = f"nfl_odds_{args.start_year}_{args.end_year}_complete"
     
     if df.empty:
         logger.error("No data scraped!")
@@ -93,7 +93,8 @@ def main():
         
         # Show team coverage
         if 'away_team' in df.columns:
-            teams_found = df['away_team'].nunique()
+            all_teams = set(df['away_team'].unique()) | set(df['home_team'].unique())
+            teams_found = len(all_teams)
             print(f"Teams found: {teams_found}/32 NFL teams")
         
         print(f"\n💡 NEXT STEPS")

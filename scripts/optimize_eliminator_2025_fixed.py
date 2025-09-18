@@ -5,18 +5,30 @@ Optimize eliminator picks for 2025 season with correct constraint formulation.
 
 import pandas as pd
 import numpy as np
+import argparse
+from pathlib import Path
 from scipy.optimize import linprog
 
-def optimize_eliminator_picks():
+def optimize_eliminator_picks(predictions_file: str = None, week1_pick: str = None):
     """Find optimal eliminator picks for 2025 season."""
     print('🎯 OPTIMIZING ELIMINATOR PICKS FOR 2025 SEASON')
     print('=' * 50)
     
+    # Default file path (chain from previous script)
+    if predictions_file is None:
+        predictions_file = 'data/processed/nfl_2025_predictions_updated.csv'
+    if week1_pick is None:
+        week1_pick = 'DEN'  # Denver Broncos
+    
+    print(f'📂 Predictions: {predictions_file}')
+    print(f'🏈 Week 1 Pick: {week1_pick}')
+    print()
+    
     # Load the updated predictions
-    predictions = pd.read_csv('data/processed/nfl_2025_predictions_updated.csv')
+    predictions = pd.read_csv(predictions_file)
     print(f'📊 Loaded {len(predictions)} game predictions')
     
-    # Filter to weeks 2-18 (since Denver was picked in Week 1)
+    # Filter to weeks 2-18 (since week1_pick was used in Week 1)
     future_games = predictions[predictions['week'] >= 2].copy()
     print(f'📊 Future games (Weeks 2-18): {len(future_games)}')
     
@@ -181,16 +193,16 @@ def optimize_eliminator_picks():
         picks.sort(key=lambda x: x['week'])
         
         print(f'\\n🎯 YOUR ELIMINATOR PICKS FOR 2025:')
-        print(f'Week 1: DEN vs TEN (already picked)')
+        print(f'Week 1: {week1_pick} (already picked)')
         
         total_log_prob = 0
         for pick in picks:
             print(f'Week {pick["week"]}: {pick["game"]} ({pick["probability"]:.1%})')
             total_log_prob += np.log(pick['probability'])
         
-        # Add Denver's Week 1 probability (need to look this up)
-        denver_week1_prob = 0.8  # Estimate, could look up actual
-        total_log_prob += np.log(denver_week1_prob)
+        # Add Week 1 pick probability (need to look this up)
+        week1_prob = 0.8  # Estimate, could look up actual from predictions
+        total_log_prob += np.log(week1_prob)
         
         overall_prob = np.exp(total_log_prob)
         print(f'\\n📊 OVERALL SEASON SUCCESS PROBABILITY: {overall_prob:.2%}')
@@ -201,5 +213,24 @@ def optimize_eliminator_picks():
         print(f'❌ OPTIMIZATION FAILED: {result.message}')
         return None
 
+def main():
+    """Main function with command line argument parsing."""
+    parser = argparse.ArgumentParser(description="Optimize NFL eliminator picks for 2025 season")
+    parser.add_argument('--predictions-file', 
+                       default='data/processed/nfl_2025_predictions_updated.csv',
+                       help='Path to predictions file (default: output from generate_updated_2025_predictions.py)')
+    parser.add_argument('--week1-pick', 
+                       default='DEN',
+                       help='Team picked in Week 1 (default: DEN)')
+    
+    args = parser.parse_args()
+    
+    picks = optimize_eliminator_picks(
+        predictions_file=args.predictions_file,
+        week1_pick=args.week1_pick
+    )
+    
+    return picks
+
 if __name__ == "__main__":
-    picks = optimize_eliminator_picks()
+    main()
